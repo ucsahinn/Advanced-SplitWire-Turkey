@@ -13,9 +13,9 @@ namespace Astral.Core.Updates;
 public sealed class AppUpdateService
 {
     public static readonly Uri DefaultLatestReleaseUri = new(
-        "https://api.github.com/repos/ucsahinn/astral/releases/latest");
+        "https://api.github.com/repos/vaultekbilisim/astral/releases/latest");
 
-    private const string RepositoryOwner = "ucsahinn";
+    private const string RepositoryOwner = "vaultekbilisim";
     private const string RepositoryName = "astral";
     private const string GitHubHost = "github.com";
     private const string UpdaterExecutableName = "Astral.Updater.exe";

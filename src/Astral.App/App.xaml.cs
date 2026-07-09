@@ -25,9 +25,9 @@ namespace Astral.App;
 
 public partial class App : System.Windows.Application, IDisposable
 {
-    private const string MutexName = @"Local\Astral.ucsahinn.SingleInstance";
-    private const string ShowWindowEventName = @"Local\Astral.ucsahinn.ShowWindow";
-    private const string DiagnosticExitEventName = @"Local\Astral.ucsahinn.DiagnosticExit";
+    private const string MutexName = @"Local\Astral.VaultekBilisim.SingleInstance";
+    private const string ShowWindowEventName = @"Local\Astral.VaultekBilisim.ShowWindow";
+    private const string DiagnosticExitEventName = @"Local\Astral.VaultekBilisim.DiagnosticExit";
     private const string DiagnosticConnectSmokeArgument = "--diagnostic-connect-smoke";
     private const string DiagnosticExitSmokeArgument = "--diagnostic-exit-smoke";
     private static readonly TimeSpan ExitControllerDisposeTimeout = TimeSpan.FromSeconds(2);

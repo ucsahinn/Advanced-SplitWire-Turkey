@@ -10,12 +10,12 @@
     <RootNamespace>Astral.WebProxy</RootNamespace>
     <AssemblyTitle>Astral.WebProxy</AssemblyTitle>
     <AssemblyDescription>Astral scoped target web proxy</AssemblyDescription>
-    <AssemblyCompany>ucsahinn</AssemblyCompany>
+    <AssemblyCompany>Vaultek Bilisim</AssemblyCompany>
     <AssemblyProduct>Astral</AssemblyProduct>
-    <Copyright>Copyright (c) 2026 ucsahinn</Copyright>
+    <Copyright>Copyright (c) 2026 Vaultek Bilisim</Copyright>
     <Version>2.2.34</Version>
     <FileVersion>2.2.34.0</FileVersion>
-    <RepositoryUrl>https://github.com/ucsahinn/astral</RepositoryUrl>
+    <RepositoryUrl>https://github.com/vaultekbilisim/astral</RepositoryUrl>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Astral.Core\Astral.Core.csproj" />

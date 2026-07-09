@@ -9,14 +9,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ucsahinn/astral/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/ucsahinn/astral?display_name=tag&style=for-the-badge"></a>
+  <a href="https://github.com/vaultekbilisim/astral/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/vaultekbilisim/astral?display_name=tag&style=for-the-badge"></a>
   <img alt="Windows" src="https://img.shields.io/badge/Windows-10%2B-2f81f7?style=for-the-badge&logo=windows">
   <img alt=".NET" src="https://img.shields.io/badge/.NET-8-7c3aed?style=for-the-badge&logo=dotnet">
   <img alt="Portable-ZIP" src="https://img.shields.io/badge/Portable-ZIP-22c55e?style=for-the-badge">
 </p>
 
 <p align="center">
-  <a href="https://github.com/ucsahinn/astral/releases">İndir</a>
+  <a href="https://github.com/vaultekbilisim/astral/releases">İndir</a>
   · <a href="docs/kullanim.md">Kullanım</a>
   · <a href="docs/guncelleme.md">Güncelleme</a>
   · <a href="docs/guvenlik.md">Güvenlik</a>
@@ -87,7 +87,7 @@ Daha teknik sınırlar için [güvenlik dokümanına](docs/guvenlik.md) ve [SECU
 
 ## Hızlı Başlangıç
 
-1. [GitHub Releases](https://github.com/ucsahinn/astral/releases) sayfasından en güncel `Astral-win-x64.zip` arşivini indirin.
+1. [GitHub Releases](https://github.com/vaultekbilisim/astral/releases) sayfasından en güncel `Astral-win-x64.zip` arşivini indirin.
 2. ZIP içeriğini istediğiniz klasöre çıkarın.
 3. `Astral.exe` dosyasını çalıştırın.
 4. İlk kullanım ekranında WireSock ve WARP koşullarını okuyup onaylayın.
@@ -127,7 +127,7 @@ Release paketi yerel olarak hazırlanacaksa:
 
 Hata bildirirken Astral sürümünü, Windows sürümünü, seçili hedefleri ve redakte edilmiş tanılama paketini ekleyin. Özel anahtar, token, cookie, `wgcf-account.toml`, tam WireGuard profili veya kişisel veri paylaşmayın.
 
-Güvenlik açığı bildirmek için [GitHub Security Advisory](https://github.com/ucsahinn/astral/security/advisories/new) kullanın.
+Güvenlik açığı bildirmek için [GitHub Security Advisory](https://github.com/vaultekbilisim/astral/security/advisories/new) kullanın.
 
 ## Lisans ve Üçüncü Taraf Notu
 

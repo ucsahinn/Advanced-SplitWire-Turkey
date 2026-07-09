@@ -1310,18 +1310,18 @@ file sealed class FakeUpdateHttpMessageHandler : HttpMessageHandler
                 $$"""
                 {
                   "tag_name": "v{{Version}}",
-                  "html_url": "https://github.com/ucsahinn/astral/releases/tag/v{{Version}}",
+                  "html_url": "https://github.com/vaultekbilisim/astral/releases/tag/v{{Version}}",
                   "assets": [
                     {
                       "name": "{{PackageName}}",
-                      "browser_download_url": "https://github.com/ucsahinn/astral/releases/download/v{{Version}}/{{PackageName}}",
+                      "browser_download_url": "https://github.com/vaultekbilisim/astral/releases/download/v{{Version}}/{{PackageName}}",
                       "state": "uploaded",
                       "size": 1024,
                       "digest": "sha256:{{PackageHash}}"
                     },
                     {
                       "name": "{{ChecksumName}}",
-                      "browser_download_url": "https://github.com/ucsahinn/astral/releases/download/v{{Version}}/{{ChecksumName}}",
+                      "browser_download_url": "https://github.com/vaultekbilisim/astral/releases/download/v{{Version}}/{{ChecksumName}}",
                       "state": "uploaded",
                       "size": 93,
                       "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
@@ -1332,7 +1332,7 @@ file sealed class FakeUpdateHttpMessageHandler : HttpMessageHandler
         }
 
         if (request.RequestUri?.AbsoluteUri ==
-            $"https://github.com/ucsahinn/astral/releases/download/v{Version}/{ChecksumName}")
+            $"https://github.com/vaultekbilisim/astral/releases/download/v{Version}/{ChecksumName}")
         {
             return Task.FromResult(CreateTextResponse($"{PackageHash}  {PackageName}"));
         }
