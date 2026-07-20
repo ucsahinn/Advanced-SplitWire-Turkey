@@ -1855,7 +1855,7 @@ static async Task AppUpdateSkipsCurrentReleaseAsync()
         handler.AddJson(latestUri, """
             {
               "tag_name": "v2.0.12",
-              "html_url": "https://github.com/vaultekbilisim/astral/releases/tag/v2.0.12",
+              "html_url": "https://github.com/ucsahinn/astral/releases/tag/v2.0.12",
               "assets": []
             }
             """);
@@ -1888,8 +1888,8 @@ static async Task AppUpdateCheckFindsReleaseWithoutDownloadAsync()
     try
     {
         var latestUri = new Uri("https://updates.example.test/releases/latest");
-        var zipUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
-        var checksumUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
+        var zipUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
+        var checksumUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
         var packageBytes = CreateUpdatePackage();
         var expectedSha256 = Convert.ToHexString(SHA256.HashData(packageBytes));
         var handler = new MapHttpMessageHandler();
@@ -1929,8 +1929,8 @@ static async Task AppUpdateCheckRetriesTransientMetadataFailureAsync()
     try
     {
         var latestUri = new Uri("https://updates.example.test/releases/latest");
-        var zipUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
-        var checksumUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
+        var zipUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
+        var checksumUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
         var packageBytes = CreateUpdatePackage();
         var expectedSha256 = Convert.ToHexString(SHA256.HashData(packageBytes));
         var handler = new MapHttpMessageHandler();
@@ -1990,8 +1990,8 @@ static async Task AppUpdateCheckRetriesTransientMetadataBodyFailureAsync()
     try
     {
         var latestUri = new Uri("https://updates.example.test/releases/latest");
-        var zipUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
-        var checksumUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
+        var zipUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
+        var checksumUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
         var packageBytes = CreateUpdatePackage();
         var expectedSha256 = Convert.ToHexString(SHA256.HashData(packageBytes));
         var handler = new MapHttpMessageHandler();
@@ -2054,8 +2054,8 @@ static async Task AppUpdateCheckRetriesTransientChecksumFailureAsync()
     try
     {
         var latestUri = new Uri("https://updates.example.test/releases/latest");
-        var zipUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
-        var checksumUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
+        var zipUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
+        var checksumUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
         var packageBytes = CreateUpdatePackage();
         var expectedSha256 = Convert.ToHexString(SHA256.HashData(packageBytes));
         var handler = new MapHttpMessageHandler();
@@ -2110,8 +2110,8 @@ static async Task AppUpdatePreparesVerifiedReleaseAsync()
     try
     {
         var latestUri = new Uri("https://updates.example.test/releases/latest");
-        var zipUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
-        var checksumUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
+        var zipUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
+        var checksumUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
         var packageBytes = CreateUpdatePackage();
         var expectedSha256 = Convert.ToHexString(SHA256.HashData(packageBytes));
         var handler = new MapHttpMessageHandler();
@@ -2180,8 +2180,8 @@ static async Task AppUpdateThrottlesDownloadProgressAsync()
     try
     {
         var latestUri = new Uri("https://updates.example.test/releases/latest");
-        var zipUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
-        var checksumUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
+        var zipUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
+        var checksumUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
         var packageBytes = CreateUpdatePackage();
         var expectedSha256 = Convert.ToHexString(SHA256.HashData(packageBytes));
         var handler = new MapHttpMessageHandler();
@@ -2234,8 +2234,8 @@ static async Task AppUpdatePreservesDownloadRetryProgressAsync()
     try
     {
         var latestUri = new Uri("https://updates.example.test/releases/latest");
-        var zipUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
-        var checksumUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
+        var zipUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
+        var checksumUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
         var packageBytes = CreateUpdatePackage();
         var expectedSha256 = Convert.ToHexString(SHA256.HashData(packageBytes));
         var handler = new MapHttpMessageHandler();
@@ -2288,8 +2288,8 @@ static async Task AppUpdateRejectsDigestMismatchAsync()
     try
     {
         var latestUri = new Uri("https://updates.example.test/releases/latest");
-        var zipUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
-        var checksumUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
+        var zipUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
+        var checksumUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
         var packageBytes = CreateUpdatePackage();
         var expectedSha256 = Convert.ToHexString(SHA256.HashData(packageBytes));
         var handler = new MapHttpMessageHandler();
@@ -2329,8 +2329,8 @@ static async Task AppUpdateDefaultsToGitHubVerifiedPackageAsync()
     try
     {
         var latestUri = new Uri("https://updates.example.test/releases/latest");
-        var zipUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
-        var checksumUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
+        var zipUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
+        var checksumUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
         var packageBytes = CreateUpdatePackage();
         var expectedSha256 = Convert.ToHexString(SHA256.HashData(packageBytes));
         var handler = new MapHttpMessageHandler();
@@ -2373,8 +2373,8 @@ static async Task AppUpdateRejectsManifestVersionMismatchAsync()
     try
     {
         var latestUri = new Uri("https://updates.example.test/releases/latest");
-        var zipUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
-        var checksumUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
+        var zipUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
+        var checksumUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
         var packageBytes = CreateUpdatePackage(version: "2.0.15");
         var expectedSha256 = Convert.ToHexString(SHA256.HashData(packageBytes));
         var handler = new MapHttpMessageHandler();
@@ -2412,8 +2412,8 @@ static async Task AppUpdateRejectsOversizedChecksumAsync()
     try
     {
         var latestUri = new Uri("https://updates.example.test/releases/latest");
-        var zipUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
-        var checksumUri = new Uri("https://github.com/vaultekbilisim/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
+        var zipUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
+        var checksumUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
         var packageBytes = CreateUpdatePackage();
         var expectedSha256 = Convert.ToHexString(SHA256.HashData(packageBytes));
         var handler = new MapHttpMessageHandler();
@@ -8413,7 +8413,7 @@ static string CreateReleaseJson(
     return $$"""
         {
           "tag_name": "v{{version}}",
-          "html_url": "https://github.com/vaultekbilisim/astral/releases/tag/v{{version}}",
+          "html_url": "https://github.com/ucsahinn/astral/releases/tag/v{{version}}",
           "assets": [
             {
               "name": "Astral-{{version}}-win-x64.zip",

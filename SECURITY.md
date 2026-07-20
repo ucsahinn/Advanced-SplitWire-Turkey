@@ -10,7 +10,7 @@ Yalnızca `main` dalı ve en son yayınlanan sürüm güvenlik düzeltmesi alır
 
 Güvenlik açıklarını herkese açık bildirim olarak paylaşmayın. Şu durumlarda GitHub özel güvenlik bildirimi kullanın:
 
-<https://github.com/vaultekbilisim/astral/security/advisories/new>
+<https://github.com/ucsahinn/astral/security/advisories/new>
 
 Özellikle şunları gizli bildirin:
 

@@ -9,7 +9,7 @@ Bu doküman, GitHub Releases yüzeyindeki sürüm kararlarını ve yayın kapıs
 
 - `git tag --list`
 - `git ls-remote --tags origin`
-- `gh release list --repo vaultekbilisim/astral --limit 100`
+- `gh release list --repo ucsahinn/astral --limit 100`
 - Yerel release notları ve build script'leri
 - `scripts/verify.ps1`
 - `scripts/build-release.ps1`
