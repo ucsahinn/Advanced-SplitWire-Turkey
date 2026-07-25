@@ -261,6 +261,9 @@ public sealed class WindowsScopedWebProxyService : IScopedWebProxyService, IAsyn
     private readonly IAstralDiagnostics _diagnostics;
     private readonly string _powerShellPath;
     private readonly int _preferredProxyPort;
+    private readonly Action<string>? _executableTrustVerifier;
+    private readonly bool _deleteExecutableDirectoryOnDispose;
+    private readonly string? _bundleExtractionBaseDirectory;
     private IManagedProcess? _proxyProcess;
 
     public WindowsScopedWebProxyService(
@@ -270,7 +273,10 @@ public sealed class WindowsScopedWebProxyService : IScopedWebProxyService, IAsyn
         string webProxyExecutable,
         IAstralDiagnostics? diagnostics = null,
         string? powerShellPath = null,
-        int preferredProxyPort = DefaultProxyPort)
+        int preferredProxyPort = DefaultProxyPort,
+        Action<string>? executableTrustVerifier = null,
+        bool deleteExecutableDirectoryOnDispose = false,
+        string? bundleExtractionBaseDirectory = null)
     {
         _paths = paths ?? throw new ArgumentNullException(nameof(paths));
         _commandRunner = commandRunner ?? throw new ArgumentNullException(nameof(commandRunner));
@@ -290,6 +296,21 @@ public sealed class WindowsScopedWebProxyService : IScopedWebProxyService, IAsyn
         }
 
         _preferredProxyPort = preferredProxyPort;
+        _executableTrustVerifier = executableTrustVerifier;
+        _deleteExecutableDirectoryOnDispose = deleteExecutableDirectoryOnDispose;
+        _bundleExtractionBaseDirectory = string.IsNullOrWhiteSpace(
+            bundleExtractionBaseDirectory)
+            ? null
+            : Path.GetFullPath(bundleExtractionBaseDirectory);
+        if (_bundleExtractionBaseDirectory is not null
+            && !IsChildPath(
+                Path.GetDirectoryName(_webProxyExecutable)!,
+                _bundleExtractionBaseDirectory))
+        {
+            throw new ArgumentException(
+                "Bundle extraction klasörü staged WebProxy dizini altında olmalıdır.",
+                nameof(bundleExtractionBaseDirectory));
+        }
     }
 
     public async Task ApplyAsync(
@@ -348,11 +369,29 @@ public sealed class WindowsScopedWebProxyService : IScopedWebProxyService, IAsyn
             arguments.Add(rule.Pattern);
         }
 
-        _proxyProcess = _processLauncher.Start(
-            _webProxyExecutable,
-            arguments,
-            Path.GetDirectoryName(_webProxyExecutable)!,
-            _paths.TunnelLog);
+        _executableTrustVerifier?.Invoke(_webProxyExecutable);
+        if (_bundleExtractionBaseDirectory is null)
+        {
+            _proxyProcess = _processLauncher.Start(
+                _webProxyExecutable,
+                arguments,
+                Path.GetDirectoryName(_webProxyExecutable)!,
+                _paths.TunnelLog);
+        }
+        else
+        {
+            PrepareBundleExtractionDirectory(_bundleExtractionBaseDirectory);
+            _proxyProcess = _processLauncher.Start(
+                _webProxyExecutable,
+                arguments,
+                Path.GetDirectoryName(_webProxyExecutable)!,
+                _paths.TunnelLog,
+                new Dictionary<string, string?>
+                {
+                    ["DOTNET_BUNDLE_EXTRACT_BASE_DIR"] =
+                        _bundleExtractionBaseDirectory
+                });
+        }
         await EnsureProxyProcessStartedAsync(proxyPort, cancellationToken);
         progress?.Report("Seçili web hedefleri için yerel proxy hazır");
 
@@ -608,6 +647,56 @@ public sealed class WindowsScopedWebProxyService : IScopedWebProxyService, IAsyn
     public async ValueTask DisposeAsync()
     {
         await ClearAsync(CancellationToken.None);
+        if (_deleteExecutableDirectoryOnDispose)
+        {
+            TryDeleteStagedExecutableDirectory();
+        }
+    }
+
+    private void TryDeleteStagedExecutableDirectory()
+    {
+        var directory = Path.GetDirectoryName(_webProxyExecutable);
+        if (string.IsNullOrWhiteSpace(directory)
+            || !Directory.Exists(directory))
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+        catch (Exception exception)
+            when (exception is IOException or UnauthorizedAccessException)
+        {
+            _diagnostics.Warning(
+                "webProxy.stagingCleanup",
+                "Korumalı WebProxy oturum klasörü temizlenemedi.",
+                new Dictionary<string, string?>
+                {
+                    ["diagnostic"] = exception.Message
+                });
+        }
+    }
+
+    private static void PrepareBundleExtractionDirectory(string directory)
+    {
+        Directory.CreateDirectory(directory);
+        if (new DirectoryInfo(directory).Attributes.HasFlag(
+                FileAttributes.ReparsePoint))
+        {
+            throw new InvalidDataException(
+                "Bundle extraction klasörü symlink veya reparse point olamaz.");
+        }
+    }
+
+    private static bool IsChildPath(string parentPath, string candidatePath)
+    {
+        var parent = Path.GetFullPath(parentPath).TrimEnd(
+            Path.DirectorySeparatorChar,
+            Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var candidate = Path.GetFullPath(candidatePath);
+        return candidate.StartsWith(parent, StringComparison.OrdinalIgnoreCase);
     }
 
     private static IEnumerable<ProbeTarget> EnumerateProbeTargets(

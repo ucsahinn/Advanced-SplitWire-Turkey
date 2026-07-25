@@ -38,7 +38,7 @@ Güncelleme uygulanmadan önce şu kontroller yapılır:
 - GitHub `sha256:` digest bilgisi ve `.sha256.txt` dosyası ZIP ile eşleşir.
 - ZIP içinde `astral.update-manifest.json` bulunur.
 - Manifest sürümü, denetlenen release sürümüyle eşleşir.
-- Kod imzalama varsa Authenticode imzası ayrıca korunur; sertifika yoksa güncelleme GitHub release yolu, asset digest, SHA-256 ve manifest doğrulamasıyla ilerler.
+- Resmi release Authenticode imzalıdır. Çalışan Astral imzalıysa indirilen paketteki tüm PE dosyaları aynı yayıncı imzasıyla eşleşmeden güncelleme hazırlanmaz; contributor geliştirme build'leri ayrıca GitHub release yolu, asset digest, SHA-256 ve manifest kapılarını korur.
 
 Bu kontrollerden biri başarısız olursa güncelleme uygulanmaz.
 
@@ -54,7 +54,7 @@ C:\Tools\Astral\Astral.exe
 
 Bu durumda güncelleme `C:\Tools\Astral` klasörünü hedef alır.
 
-Yeni elle kurulumlarda klasör adını sabit `Astral` tutmak önerilir. `Astral-2.2.34-win-x64` veya `2.2.34` gibi sürüm adlı klasörlerden çalıştırma desteklenir, ancak Astral bu durumu tanılama paketine yazar ve kullanıcı onayı olmadan klasör taşımaz.
+Yeni elle kurulumlarda klasör adını sabit `Astral` tutmak önerilir. `Astral-2.2.35-win-x64` veya `2.2.35` gibi sürüm adlı klasörlerden çalıştırma desteklenir, ancak Astral bu durumu tanılama paketine yazar ve kullanıcı onayı olmadan klasör taşımaz.
 
 ## Güvenli Değiştirme ve Geri Dönüş
 
@@ -77,7 +77,7 @@ Kullanıcı klasörü elle taşırsa kısayol veya başlangıç kaydını yenide
 
 ## Bilinen Sınırlar
 
-- Kod imzalama yoksa paket imzasız yayınlanabilir; bu durumda güven sınırı GitHub yayın yetkisi, release yolu, asset digest, SHA-256 dosyası ve manifest doğrulamasıdır.
+- Yerel contributor build'i sertifika verilmezse imzasız üretilebilir; resmi release workflow'u ise kod imzalama secret'larını ve tüm PE dosyalarında geçerli Authenticode imzasını zorunlu kılar. İmzalı Astral çalışma anında `Astral.Updater.exe` ile `Astral.WebProxy.exe` dosyalarının aynı imzaya sahip olduğunu doğrular; otomatik güncelleme de yeni paketin PE imzalarını mevcut yayıncıyla eşleştirir.
 - GitHub digest, SHA-256 dosyası veya manifest doğrulaması geçmeyen paketler uygulanmaz.
 - GitHub erişimi olmayan ağlarda güncelleme denetimi başarısız olabilir; uygulama mevcut sürümle çalışmaya devam eder ve güncelleme düğmesi göstermez.
 - Çok yavaş bağlantılarda indirme zaman aşımı yaşanırsa kullanıcı daha sonra tekrar deneyebilir.

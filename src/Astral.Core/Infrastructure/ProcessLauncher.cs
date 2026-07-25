@@ -19,12 +19,26 @@ public sealed class ProcessLauncher : IProcessLauncher
         string executable,
         IReadOnlyList<string> arguments,
         string workingDirectory,
-        string logPath)
+        string logPath) =>
+        Start(
+            executable,
+            arguments,
+            workingDirectory,
+            logPath,
+            new Dictionary<string, string?>());
+
+    public IManagedProcess Start(
+        string executable,
+        IReadOnlyList<string> arguments,
+        string workingDirectory,
+        string logPath,
+        IReadOnlyDictionary<string, string?> environment)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(executable);
         ArgumentNullException.ThrowIfNull(arguments);
         ArgumentException.ThrowIfNullOrWhiteSpace(workingDirectory);
         ArgumentException.ThrowIfNullOrWhiteSpace(logPath);
+        ArgumentNullException.ThrowIfNull(environment);
 
         var startInfo = new ProcessStartInfo
         {
@@ -39,6 +53,19 @@ public sealed class ProcessLauncher : IProcessLauncher
         foreach (var argument in arguments)
         {
             startInfo.ArgumentList.Add(argument);
+        }
+
+        foreach (var (name, value) in environment)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(name);
+            if (value is null)
+            {
+                startInfo.Environment.Remove(name);
+            }
+            else
+            {
+                startInfo.Environment[name] = value;
+            }
         }
 
         var process = new Process

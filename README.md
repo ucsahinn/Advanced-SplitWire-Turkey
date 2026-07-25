@@ -79,7 +79,7 @@ Başlangıç presetleri:
 - Genel tarayıcı exe'lerini WireSock `AllowedApps` kapsamına almaz.
 - HTTPS içeriğini çözmez, TLS MITM yapmaz ve sertifika kurmaz; proxy yalnızca CONNECT host/Host allowlist kontrolü yapar.
 - WireSock ve wgcf ikili dosyalarını repoya gömmez; release paketindeki WireSock fallback kurucusu varsa hash, imza, yayıncı ve sürümle doğrulanır.
-- Arka plan videosu release paketine SHA-256 ile doğrulanmış repo-local `Assets/background.mp4` olarak eklenir; normal akışta yerel dosya oynatılır, yerel asset yüklenemezse tanılamaya yazılarak aynı doğrulanmış CloudFront kaynağı CDN fallback olarak denenir. Windows azaltılmış hareket tercihinde video gizlenmez, daha sakin hızla oynatılır; manuel kapatma için `ASTRAL_DISABLE_BACKGROUND_VIDEO=1` kullanılabilir.
+- Arka plan videosu release paketine SHA-256 ile doğrulanmış repo-local `Assets/background.mp4` olarak eklenir; normal akışta yerel dosya oynatılır, yerel asset yüklenemezse tanılamaya yazılarak aynı doğrulanmış CloudFront kaynağı CDN fallback olarak denenir. Windows azaltılmış hareket tercihinde video ve sürekli pulse animasyonları kapatılır; manuel kapatma için `ASTRAL_DISABLE_BACKGROUND_VIDEO=1` kullanılabilir.
 - Otomatik güncelleme paketini GitHub release asset bilgisi, `.sha256.txt`, GitHub digest ve manifest kontrolleriyle eşleştirir.
 - Gizli profil, hesap ve log dosyalarını repoya veya release arşivine eklemez.
 
@@ -94,7 +94,25 @@ Daha teknik sınırlar için [güvenlik dokümanına](docs/guvenlik.md) ve [SECU
 5. Ana ekrandaki hedef kartlarından kapsamı belirleyin.
 6. Ana ekranda **Bağlan** düğmesine basın.
 
-Release sayfasındaki ZIP paketini manuel indirdiğinizde yanında verilen SHA-256 dosyasıyla kontrol etmeniz önerilir. Uygulama içi otomatik güncelleme zinciri GitHub release yolu, asset digest, SHA-256 dosyası ve manifest eşleşmesi olmadan paketi uygulamaz.
+İlk bağlantıdan önce Astral'ın yapacağı değişiklikler açıkça gösterilir:
+
+| İşlem | Kapsam |
+| --- | --- |
+| Yönetici izni | WireSock sürecini, geçici firewall kapsamını ve Windows PAC/proxy durumunu yönetmek için gerekir. |
+| Yardımcı araçlar | Onayınızdan sonra doğrulanmış WireSock kurucusu ve `wgcf` indirilebilir; WireSock ayrıca kurulabilir. |
+| Yerel veri | Ayarlar, tanılama ve üretilen profil `%LOCALAPPDATA%\Astral` altında tutulur. |
+| Geçici sistem durumu | Seçili web hedefleri için PAC/proxy ve bağlantı koruması uygulanır; bağlantı kesildiğinde geri alınır. |
+| Güncelleme staging'i | Uygulama güncellemesi hazırlanırsa `%PROGRAMDATA%\Astral\updates` kullanılır. |
+
+Release sayfasındaki ZIP paketini manuel indirdiğinizde yanındaki SHA-256 dosyasıyla doğrulayın:
+
+```powershell
+$actual = (Get-FileHash .\Astral-win-x64.zip -Algorithm SHA256).Hash
+$expected = ((Get-Content -Raw .\Astral-win-x64.sha256.txt) -split '\s+')[0]
+if ($actual -ne $expected) { throw 'Astral ZIP SHA-256 doğrulaması başarısız.' }
+```
+
+Değerler uyuşmazsa ZIP'i çalıştırmayın; iki dosyayı da silip resmi release sayfasından yeniden indirin. Uygulama içi otomatik güncelleme zinciri GitHub release yolu, asset digest, SHA-256 dosyası ve manifest eşleşmesi olmadan paketi uygulamaz.
 
 ## Doküman Haritası
 
@@ -106,22 +124,33 @@ Release sayfasındaki ZIP paketini manuel indirdiğinizde yanında verilen SHA-2
 | Sorun giderme | [docs/sorun-giderme.md](docs/sorun-giderme.md) |
 | Mimari | [docs/mimari.md](docs/mimari.md) |
 | Kaynak sorun denetimi | [docs/kaynak-sorun-denetimi.md](docs/kaynak-sorun-denetimi.md) |
-| v2.2.34 release notu | [docs/releases/v2.2.34.md](docs/releases/v2.2.34.md) |
+| v2.2.35 release notu | [docs/releases/v2.2.35.md](docs/releases/v2.2.35.md) |
 
 ## Geliştirme
 
+Önkoşullar:
+
+- Windows 10 veya Windows 11 x64.
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0); repo `global.json` ile `8.0.422` feature band'ini kullanır.
+- Git ve Windows PowerShell 5.1+ veya PowerShell 7+.
+- İlk doğrulamada NuGet restore için ağ erişimi.
+
+Önce SDK'nın görünür olduğunu kontrol edin:
+
 ```powershell
-dotnet build Astral.sln --configuration Release
-dotnet run --project tests\Astral.Core.Tests --configuration Release
-dotnet run --project tests\Astral.Windows.Tests --configuration Release
-.\scripts\verify.ps1
+dotnet --version
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify.ps1
 ```
 
-Release paketi yerel olarak hazırlanacaksa:
+Başarılı doğrulama `Dogrulama basariyla tamamlandi.` satırıyla biter. Script release build'i, Core ve Windows testlerini, kaynak politikalarını, PowerShell sözdizimini ve sürüm/manifest eşliğini tek seferde denetler; varsayılan geçici build çıktısını tamamlandığında temizler. Dar bir hata üzerinde çalışırken ayrı `dotnet build` veya test projesi komutlarını kullanabilirsiniz.
+
+Yerel contributor paketi üretmek `artifacts` altındaki aynı adlı çıktıları yeniler ve kod imzalama yapılandırılmadıysa imzasız ZIP oluşturur:
 
 ```powershell
-.\scripts\build-release.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-release.ps1
 ```
+
+Resmi release; temiz doğrulama, zorunlu Git-geçmişi/çalışma-ağacı/paket secret scan'leri, sürüm/tag eşliği, release notu, paket manifest/SHA denetimi ve zorunlu Authenticode imzası tamamlandıktan sonra GitHub Actions üzerinden üretilir. İmzalı Astral çalışma anında Updater ve WebProxy yardımcı ikililerinin aynı yayıncı imzasıyla eşleşmesini de zorunlu kılar.
 
 ## Destek ve Güvenlik
 

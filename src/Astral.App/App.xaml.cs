@@ -14,6 +14,7 @@ using Astral.Core.Firewall;
 using Astral.Core.Infrastructure;
 using Astral.Core.Maintenance;
 using Astral.Core.Provisioning;
+using Astral.Core.Security;
 using Astral.Core.WebProxy;
 using Astral.Core.Updates;
 using Astral.Core.WireSock;
@@ -25,6 +26,12 @@ namespace Astral.App;
 
 public partial class App : System.Windows.Application, IDisposable
 {
+#if ASTRAL_OFFICIAL_RELEASE
+    private const bool RequireOfficialReleaseSignature = true;
+#else
+    private const bool RequireOfficialReleaseSignature = false;
+#endif
+
     private const string MutexName = @"Local\Astral.VaultekBilisim.SingleInstance";
     private const string ShowWindowEventName = @"Local\Astral.VaultekBilisim.ShowWindow";
     private const string DiagnosticExitEventName = @"Local\Astral.VaultekBilisim.DiagnosticExit";
@@ -130,6 +137,50 @@ public partial class App : System.Windows.Application, IDisposable
             "Astral başlatıldı.",
             startupDetails);
 
+        var applicationPath = Environment.ProcessPath
+            ?? throw new InvalidOperationException("Astral executable yolu okunamadı.");
+        var releaseBinariesAreSigned = ReleaseBinaryTrustPolicy.ValidateCompanions(
+            applicationPath,
+            [
+                Path.Combine(AppContext.BaseDirectory, "Astral.Updater.exe"),
+                Path.Combine(AppContext.BaseDirectory, "Astral.WebProxy.exe")
+            ],
+            AuthenticodeSignatureVerifier.TryGetSignerThumbprint,
+            requireSignedApplication: RequireOfficialReleaseSignature);
+        var releaseSignerThumbprint = releaseBinariesAreSigned
+            ? AuthenticodeSignatureVerifier.GetRequiredSignerThumbprint(applicationPath)
+            : null;
+        Action<string>? verifyReleaseCompanion = releaseSignerThumbprint is null
+            ? null
+            : path => AuthenticodeSignatureVerifier.VerifyFile(
+                path,
+                releaseSignerThumbprint);
+        var webProxyExecutable = Path.Combine(
+            AppContext.BaseDirectory,
+            "Astral.WebProxy.exe");
+        var deleteWebProxyStagingOnDispose = false;
+        string? webProxyBundleExtractionDirectory = null;
+        if (verifyReleaseCompanion is not null)
+        {
+            var releaseVersion = typeof(App).Assembly.GetName().Version
+                ?? throw new InvalidOperationException("Astral sürümü okunamadı.");
+            webProxyExecutable = VerifiedExecutableStager.Stage(
+                webProxyExecutable,
+                Path.Combine(_paths.SharedDataDirectory, "web-proxy-runtime"),
+                $"{releaseVersion.Major}.{releaseVersion.Minor}.{releaseVersion.Build}",
+                _paths.ProtectSharedData,
+                verifyReleaseCompanion);
+            deleteWebProxyStagingOnDispose = true;
+            webProxyBundleExtractionDirectory = Path.Combine(
+                Path.GetDirectoryName(webProxyExecutable)!,
+                "bundle-extraction");
+        }
+        _diagnostics.Info(
+            "app.releaseTrust",
+            releaseBinariesAreSigned
+                ? "Astral release ikililerinin ortak Authenticode imzası doğrulandı."
+                : "İmzasız geliştirme derlemesi çalışıyor; yayın workflow'u bu paketi reddeder.");
+
         var handler = new SocketsHttpHandler
         {
             PooledConnectionLifetime = TimeSpan.FromMinutes(10),
@@ -141,8 +192,12 @@ public partial class App : System.Windows.Application, IDisposable
         {
             Timeout = TimeSpan.FromMinutes(10)
         };
+        var applicationVersion = typeof(App).Assembly.GetName().Version
+            ?? throw new InvalidOperationException("Astral sürümü okunamadı.");
         _httpClient.DefaultRequestHeaders.UserAgent.Add(
-            new ProductInfoHeaderValue("AstralVPN", "2.2.34"));
+            new ProductInfoHeaderValue(
+                "AstralVPN",
+                $"{applicationVersion.Major}.{applicationVersion.Minor}.{applicationVersion.Build}"));
 
         var downloader = new VerifiedDownloader(_httpClient, maxAttempts: 5);
         var wireSockLocator = new WireSockLocator();
@@ -153,7 +208,11 @@ public partial class App : System.Windows.Application, IDisposable
             downloader,
             new WireSockPackageVerifier(),
             new WindowsElevatedInstallerLauncher());
-        var updateService = new AppUpdateService(_httpClient, _paths, downloader);
+        var updateService = new AppUpdateService(
+            _httpClient,
+            _paths,
+            downloader,
+            requireUpdateAuthenticode: releaseBinariesAreSigned);
         var commandRunner = new CommandRunner();
         var provisioner = new WgcfProvisioner(
             _paths,
@@ -166,8 +225,11 @@ public partial class App : System.Windows.Application, IDisposable
             _paths,
             commandRunner,
             new ProcessLauncher(),
-            Path.Combine(AppContext.BaseDirectory, "Astral.WebProxy.exe"),
-            _diagnostics);
+            webProxyExecutable,
+            _diagnostics,
+            executableTrustVerifier: verifyReleaseCompanion,
+            deleteExecutableDirectoryOnDispose: deleteWebProxyStagingOnDispose,
+            bundleExtractionBaseDirectory: webProxyBundleExtractionDirectory);
 
         _tunnelController = new DiscordTunnelController(
             _paths,

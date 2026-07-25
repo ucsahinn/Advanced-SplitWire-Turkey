@@ -10,12 +10,15 @@ using Astral.Core.WebProxy;
 var options = ProxyOptions.Parse(args);
 if (options is null)
 {
-    Console.Error.WriteLine("Usage: Astral.WebProxy --port <port> --allow <domain> [--allow <domain>...]");
+    Console.Error.WriteLine(
+        "Usage: Astral.WebProxy --port <port> --allow <domain> [--allow <domain>...] " +
+        "[--relay-idle-timeout-seconds <seconds>]");
     return 2;
 }
 
 var policy = new WebProxyAccessPolicy(options.AllowedPatterns);
 var listener = new TcpListener(IPAddress.Loopback, options.Port);
+var connectionSlots = new SemaphoreSlim(64, 64);
 using var shutdown = new CancellationTokenSource();
 Console.CancelKeyPress += (_, eventArgs) =>
 {
@@ -43,9 +46,27 @@ try
     while (!shutdown.IsCancellationRequested)
     {
         var client = await listener.AcceptTcpClientAsync(shutdown.Token);
-        _ = Task.Run(
-            () => HandleClientAsync(client, policy, shutdown.Token),
-            shutdown.Token);
+        if (!connectionSlots.Wait(0))
+        {
+            client.Dispose();
+            continue;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await HandleClientAsync(
+                    client,
+                    policy,
+                    options.RelayIdleTimeout,
+                    shutdown.Token);
+            }
+            finally
+            {
+                connectionSlots.Release();
+            }
+        });
     }
 }
 catch (OperationCanceledException)
@@ -61,13 +82,30 @@ return 0;
 static async Task HandleClientAsync(
     TcpClient client,
     WebProxyAccessPolicy policy,
+    TimeSpan relayIdleTimeout,
     CancellationToken cancellationToken)
 {
     using (client)
     {
         client.NoDelay = true;
         await using var clientStream = client.GetStream();
-        var headerBytes = await ReadHeaderAsync(clientStream, cancellationToken);
+        using var headerTimeout = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken);
+        headerTimeout.CancelAfter(TimeSpan.FromSeconds(10));
+        byte[] headerBytes;
+        try
+        {
+            headerBytes = await ReadHeaderAsync(
+                clientStream,
+                headerTimeout.Token);
+        }
+        catch (OperationCanceledException)
+            when (!cancellationToken.IsCancellationRequested)
+        {
+            await WriteProxyResponseAsync(clientStream, 408, cancellationToken);
+            return;
+        }
+
         if (headerBytes.Length == 0)
         {
             return;
@@ -98,6 +136,7 @@ static async Task HandleClientAsync(
                 parts[1],
                 policy,
                 clientStream,
+                relayIdleTimeout,
                 cancellationToken);
             return;
         }
@@ -108,6 +147,7 @@ static async Task HandleClientAsync(
             headerBytes,
             policy,
             clientStream,
+            relayIdleTimeout,
             cancellationToken);
     }
 }
@@ -116,10 +156,12 @@ static async Task HandleConnectAsync(
     string target,
     WebProxyAccessPolicy policy,
     Stream clientStream,
+    TimeSpan relayIdleTimeout,
     CancellationToken cancellationToken)
 {
     if (!TryParseHostPort(target, defaultPort: 443, out var host, out var port)
-        || !policy.IsAllowedHost(host))
+        || !policy.IsAllowedHost(host)
+        || !WebProxyEndpointPolicy.IsAllowedPort("CONNECT", port))
     {
         WriteDeniedHost("CONNECT", host);
         await WriteProxyResponseAsync(clientStream, 403, cancellationToken);
@@ -142,7 +184,11 @@ static async Task HandleConnectAsync(
         clientStream,
         "HTTP/1.1 200 Connection Established\r\nProxy-Agent: Astral.WebProxy\r\n\r\n",
         cancellationToken);
-    await RelayAsync(clientStream, upstreamStream, cancellationToken);
+    await IdleTimeoutStreamRelay.RelayAsync(
+        clientStream,
+        upstreamStream,
+        relayIdleTimeout,
+        cancellationToken);
 }
 
 static async Task HandleHttpAsync(
@@ -151,13 +197,28 @@ static async Task HandleHttpAsync(
     byte[] headerBytes,
     WebProxyAccessPolicy policy,
     Stream clientStream,
+    TimeSpan relayIdleTimeout,
     CancellationToken cancellationToken)
 {
-    var hostHeader = lines
-        .FirstOrDefault(line => line.StartsWith("Host:", StringComparison.OrdinalIgnoreCase));
-    var hostValue = hostHeader?["Host:".Length..].Trim();
+    var hostHeaders = lines
+        .Where(line => line.StartsWith("Host:", StringComparison.OrdinalIgnoreCase))
+        .Select(line => line["Host:".Length..].Trim())
+        .ToArray();
+    if (hostHeaders.Length != 1
+        || string.IsNullOrWhiteSpace(hostHeaders[0])
+        || !WebProxyEndpointPolicy.HasMatchingHttpAuthority(
+            requestTarget,
+            hostHeaders[0]))
+    {
+        await WriteProxyResponseAsync(clientStream, 400, cancellationToken);
+        return;
+    }
+
+    var hostValue = hostHeaders[0];
     var targetHost = ResolveHttpHost(requestTarget, hostValue, out var port);
-    if (targetHost is null || !policy.IsAllowedHost(targetHost))
+    if (targetHost is null
+        || !policy.IsAllowedHost(targetHost)
+        || !WebProxyEndpointPolicy.IsAllowedPort("HTTP", port))
     {
         WriteDeniedHost("HTTP", targetHost);
         await WriteProxyResponseAsync(clientStream, 403, cancellationToken);
@@ -177,7 +238,11 @@ static async Task HandleHttpAsync(
 
     await using var upstreamStream = upstream.GetStream();
     await upstreamStream.WriteAsync(headerBytes, cancellationToken);
-    await RelayAsync(clientStream, upstreamStream, cancellationToken);
+    await IdleTimeoutStreamRelay.RelayAsync(
+        clientStream,
+        upstreamStream,
+        relayIdleTimeout,
+        cancellationToken);
 }
 
 static async Task<byte[]> ReadHeaderAsync(
@@ -210,16 +275,6 @@ static bool EndsHeader(byte[] value)
 {
     return value.Length >= 4
         && value.AsSpan(value.Length - 4).SequenceEqual("\r\n\r\n"u8);
-}
-
-static async Task RelayAsync(
-    Stream clientStream,
-    Stream upstreamStream,
-    CancellationToken cancellationToken)
-{
-    var clientToServer = clientStream.CopyToAsync(upstreamStream, cancellationToken);
-    var serverToClient = upstreamStream.CopyToAsync(clientStream, cancellationToken);
-    await Task.WhenAny(clientToServer, serverToClient);
 }
 
 static string? ResolveHttpHost(
@@ -283,6 +338,7 @@ static Task WriteProxyResponseAsync(
     var reason = statusCode switch
     {
         400 => "Bad Request",
+        408 => "Request Timeout",
         502 => "Bad Gateway",
         403 => "Forbidden",
         _ => "Proxy Error"
@@ -352,11 +408,13 @@ static void WriteUpstreamFailure(string method, string host, Exception exception
 
 file sealed record ProxyOptions(
     int Port,
-    IReadOnlyList<DomainPattern> AllowedPatterns)
+    IReadOnlyList<DomainPattern> AllowedPatterns,
+    TimeSpan RelayIdleTimeout)
 {
     public static ProxyOptions? Parse(IReadOnlyList<string> args)
     {
         var port = 18088;
+        var relayIdleTimeout = TimeSpan.FromMinutes(2);
         var allowed = new List<DomainPattern>();
         for (var index = 0; index < args.Count; index++)
         {
@@ -382,6 +440,22 @@ file sealed record ProxyOptions(
                 continue;
             }
 
+            if (arg.Equals(
+                    "--relay-idle-timeout-seconds",
+                    StringComparison.OrdinalIgnoreCase)
+                && index + 1 < args.Count
+                && int.TryParse(
+                    args[index + 1],
+                    NumberStyles.None,
+                    CultureInfo.InvariantCulture,
+                    out var parsedTimeoutSeconds)
+                && parsedTimeoutSeconds is >= 1 and <= 3600)
+            {
+                relayIdleTimeout = TimeSpan.FromSeconds(parsedTimeoutSeconds);
+                index++;
+                continue;
+            }
+
             return null;
         }
 
@@ -390,7 +464,7 @@ file sealed record ProxyOptions(
             return null;
         }
 
-        return new ProxyOptions(port, allowed);
+        return new ProxyOptions(port, allowed, relayIdleTimeout);
     }
 }
 
@@ -423,12 +497,14 @@ file static class UpstreamConnector
     {
         try
         {
-            var client = new TcpClient
-            {
-                NoDelay = true
-            };
-            await client.ConnectAsync(host, port, cancellationToken);
-            return client;
+            var addresses = await Dns.GetHostAddressesAsync(
+                host,
+                cancellationToken);
+            return await ConnectResolvedAddressAsync(
+                host,
+                addresses,
+                port,
+                cancellationToken);
         }
         catch (SocketException exception) when (ShouldTryResolverFallback(exception))
         {
@@ -467,7 +543,17 @@ file static class UpstreamConnector
         CancellationToken cancellationToken)
     {
         Exception? lastFailure = null;
-        foreach (var address in addresses)
+        var publicAddresses = addresses
+            .Where(WebProxyEndpointPolicy.IsPublicAddress)
+            .Distinct()
+            .ToArray();
+        if (publicAddresses.Length == 0)
+        {
+            throw new InvalidOperationException(
+                "Astral.WebProxy resolved only non-public upstream addresses.");
+        }
+
+        foreach (var address in publicAddresses)
         {
             var client = new TcpClient
             {

@@ -154,7 +154,7 @@ static void RenderMainWindow()
         SaveWindowPng(window, Path.Combine(
             FindRepositoryRoot(),
             "artifacts",
-            "ui-main-window-v2.2.34.png"));
+            "ui-main-window-v2.2.35.png"));
 
         Assert(window.ResizeMode == ResizeMode.NoResize);
         Assert(window.Width == 1280);
@@ -588,17 +588,15 @@ static void VerifyBackgroundVideoRespectsReducedMotion()
 
         var backgroundVideo = FindVisualChildren<MediaElement>(window).Single();
         PumpDispatcherUntil(
-            () => backgroundVideo.Visibility == Visibility.Visible
-                && backgroundVideo.Source is not null,
+            () => !window.IsBackgroundVideoStartQueuedForTesting,
             TimeSpan.FromSeconds(3));
-        Assert(backgroundVideo.Visibility == Visibility.Visible);
-        Assert(backgroundVideo.Source is not null);
-        Assert(backgroundVideo.SpeedRatio < 1);
+        Assert(backgroundVideo.Visibility == Visibility.Collapsed);
+        Assert(backgroundVideo.Source is null);
         Assert(!window.IsBackgroundVideoStartQueuedForTesting);
         SaveWindowPng(window, Path.Combine(
             FindRepositoryRoot(),
             "artifacts",
-            "ui-main-window-video-v2.2.34.png"));
+            "ui-main-window-reduced-motion.png"));
     }
     finally
     {
@@ -610,7 +608,7 @@ static void VerifyBackgroundVideoRespectsReducedMotion()
         Directory.Delete(root, recursive: true);
     }
 
-    Console.WriteLine("GEÇTİ Arka plan videosu azaltılmış harekette sakin hızla görünür kaldı");
+    Console.WriteLine("GEÇTİ Arka plan videosu azaltılmış harekette devre dışı kaldı");
 }
 
 static void VerifyWindowLifetimeBehavior()

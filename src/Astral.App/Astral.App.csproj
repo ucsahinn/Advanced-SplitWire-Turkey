@@ -18,8 +18,9 @@
     <AssemblyCompany>Vaultek Bilisim</AssemblyCompany>
     <AssemblyProduct>Astral VPN</AssemblyProduct>
     <Copyright>Copyright (c) 2026 Vaultek Bilisim</Copyright>
-    <Version>2.2.34</Version>
-    <FileVersion>2.2.34.0</FileVersion>
+    <Version>2.2.35</Version>
+    <FileVersion>2.2.35.0</FileVersion>
+    <DefineConstants Condition="'$(AstralOfficialRelease)' == 'true'">$(DefineConstants);ASTRAL_OFFICIAL_RELEASE</DefineConstants>
     <RepositoryUrl>https://github.com/ucsahinn/astral</RepositoryUrl>
     <PublishTrimmed>false</PublishTrimmed>
     <PublishSingleFile>false</PublishSingleFile>
@@ -78,5 +79,9 @@
     <MSBuild Projects="..\Astral.WebProxy\Astral.WebProxy.csproj"
              Targets="Publish"
              Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained);PublishDir=$(PublishDir)" />
+    <Delete Files="$(PublishDir)Astral.WebProxy.dll;
+                   $(PublishDir)Astral.WebProxy.deps.json;
+                   $(PublishDir)Astral.WebProxy.runtimeconfig.json;
+                   $(PublishDir)Astral.WebProxy.pdb" />
   </Target>
 </Project>

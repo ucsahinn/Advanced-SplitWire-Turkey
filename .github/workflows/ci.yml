@@ -23,15 +23,34 @@ jobs:
     steps:
       - name: Kaynak kodu al
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          fetch-depth: 0
 
       - name: .NET kur
         uses: actions/setup-dotnet@9a946fdbd5fb07b82b2f5a4466058b876ab72bb2
         with:
           global-json-file: global.json
 
+      - name: Gitleaks kur
+        shell: pwsh
+        run: |
+          $version = '8.30.1'
+          $expectedSha256 = 'D29144DEFF3A68AA93CED33DDDF84B7FDC26070ADD4AA0F4513094C8332AFC4E'
+          $archive = Join-Path $env:RUNNER_TEMP "gitleaks-$version.zip"
+          $toolDirectory = Join-Path $env:RUNNER_TEMP "gitleaks-$version"
+          Invoke-WebRequest `
+            -Uri "https://github.com/gitleaks/gitleaks/releases/download/v$version/gitleaks_${version}_windows_x64.zip" `
+            -OutFile $archive
+          $actualSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash
+          if ($actualSha256 -ne $expectedSha256) {
+            throw "Gitleaks arsiv SHA-256 dogrulamasi basarisiz."
+          }
+          Expand-Archive -LiteralPath $archive -DestinationPath $toolDirectory
+          $toolDirectory | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
       - name: Test ve güvenlik taraması
         shell: pwsh
-        run: ./scripts/verify.ps1
+        run: ./scripts/verify.ps1 -RequireGitleaks
 
       - name: Windows x64 paketi üret
         shell: pwsh

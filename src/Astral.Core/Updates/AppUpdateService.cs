@@ -251,7 +251,8 @@ public sealed class AppUpdateService
 
         var applicatorPath = CopyApplicator(
             applicationDirectory,
-            updateDirectory);
+            updateDirectory,
+            expectedSignerThumbprint);
         progress?.Report(new AppUpdateProgress(
             98,
             "Yükleme yardımcısı hazırlanıyor",
@@ -658,7 +659,8 @@ public sealed class AppUpdateService
 
     private static string CopyApplicator(
         string applicationDirectory,
-        string updateDirectory)
+        string updateDirectory,
+        string? expectedSignerThumbprint)
     {
         var sourceDirectory = Path.GetFullPath(applicationDirectory);
         var applicatorDirectory = Path.Combine(
@@ -679,6 +681,13 @@ public sealed class AppUpdateService
                 source,
                 destination,
                 overwrite: true);
+            if (!string.IsNullOrWhiteSpace(expectedSignerThumbprint)
+                && AuthenticodeSignatureVerifier.ShouldVerify(relativePath))
+            {
+                AuthenticodeSignatureVerifier.VerifyFile(
+                    destination,
+                    expectedSignerThumbprint);
+            }
         }
 
         var applicatorPath = Path.Combine(

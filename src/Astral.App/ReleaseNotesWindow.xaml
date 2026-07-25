@@ -82,11 +82,11 @@
                                 VerticalAlignment="Center">
                         <TextBlock FontSize="22"
                                    FontWeight="SemiBold"
-                                   Text="Astral VPN v2.2.34" />
+                                   Text="Astral VPN v2.2.35" />
                         <TextBlock Margin="0,5,0,0"
                                    FontSize="12"
                                    Foreground="{StaticResource SecondaryTextBrush}"
-                                   Text="Bağlantı kanıtı ve cleanup hotfix'i" />
+                                   Text="Proxy güvenliği, erişilebilirlik ve kalite hotfix'i" />
                     </StackPanel>
                 </Grid>
 
@@ -109,7 +109,7 @@
                                            FontSize="14"
                                            LineHeight="21"
                                            TextWrapping="Wrap"
-                                           Text="Bu sürüm v2.2.31 üzerine kanıt kimliği ve DNS güvenliği sıkılaştırması ekler. Astral VPN artık web hedeflerinde yalnız sayım değil, seçili hedef ID'lerinin de kanıtlandığını doğrular; WebProxy public DNS fallback varsayılan olarak kapalıdır." />
+                                           Text="v2.2.35, Astral.WebProxy bağlantı sınırlarını sıkılaştırır, azaltılmış hareket tercihinde sürekli animasyonu kapatır ve CI/release secret scan kapısını zorunlu hale getirir. Ürün kapsamı yine yalnız seçili uygulama ve web hedefleriyle sınırlıdır." />
                             </StackPanel>
                         </Border>
 
@@ -126,6 +126,42 @@
                                            Text="ANA DEĞİŞİKLİKLER" />
                                 <TextBlock Margin="0,10,0,0"
                                            FontSize="13"
+                                           LineHeight="22"
+                                           TextWrapping="Wrap"
+                                           Text="&#x2022; WebProxy yalnız HTTP/80 ve CONNECT/443 uçlarını kabul eder; loopback, private, link-local, multicast ve özel IPv6 adreslerine çözülen hedefleri reddeder." />
+                                <TextBlock FontSize="13"
+                                           LineHeight="22"
+                                           TextWrapping="Wrap"
+                                           Text="&#x2022; Proxy bağlantı sayısı sınırlandı; eksik header gönderen yavaş istemciler 10 saniyelik deadline ile kapatılır." />
+                                <TextBlock FontSize="13"
+                                           LineHeight="22"
+                                           TextWrapping="Wrap"
+                                           Text="&#x2022; Host/absolute-URI sapması, special-use ve NAT64 upstream adresleri reddedilir; boş CONNECT tünelleri idle timeout ile kapanır." />
+                                <TextBlock FontSize="13"
+                                           LineHeight="22"
+                                           TextWrapping="Wrap"
+                                           Text="&#x2022; Windows azaltılmış hareket tercihi açıkken arka plan videosu ve sürekli hedef rozet pulse animasyonları çalışmaz." />
+                                <TextBlock FontSize="13"
+                                           LineHeight="22"
+                                           TextWrapping="Wrap"
+                                           Text="&#x2022; CI ve release akışı SHA-256 ile pinlenmiş Gitleaks 8.30.1 kurar; secret scan atlanırsa kapı başarısız olur." />
+                                <TextBlock FontSize="13"
+                                           LineHeight="22"
+                                           TextWrapping="Wrap"
+                                           Text="&#x2022; Resmi paket Authenticode imzası olmadan yayımlanmaz; imzalı Astral, Updater ve WebProxy ikililerinin aynı yayıncıyla eşleşmesini zorunlu kılar." />
+                                <TextBlock FontSize="13"
+                                           LineHeight="22"
+                                           TextWrapping="Wrap"
+                                           Text="&#x2022; WebProxy resmi pakette tek executable'dır; yönetici ACL'li korumalı staging ve bundle extraction alanında yeniden doğrulanarak çalışır." />
+                                <TextBlock FontSize="13"
+                                           LineHeight="22"
+                                           TextWrapping="Wrap"
+                                           Text="&#x2022; Kullanılmayan eski Discord otomasyon testleri kaldırıldı; üç geçerli launch-plan testi gerçek runner'a alındı." />
+                                <TextBlock FontSize="13"
+                                           LineHeight="22"
+                                           TextWrapping="Wrap"
+                                           Text="&#x2022; README ve katkı rehberi SDK önkoşullarını, ilk bağlantının sistem etkilerini ve manuel SHA-256 doğrulamasını açıklar." />
+                                <TextBlock FontSize="13"
                                            LineHeight="22"
                                            TextWrapping="Wrap"
                                            Text="&#x2022; Arka plan video kaynağı kullanıcının istediği CloudFront videosuyla güncellendi ve release paketine sabit hash ile eklenir." />
@@ -176,7 +212,7 @@
                                 <TextBlock FontSize="13"
                                            LineHeight="22"
                                            TextWrapping="Wrap"
-                                           Text="&#x2022; Windows animasyon azaltma tercihi açıksa arka plan videosu görünür kalır, daha sakin hızla oynar; yalnız ASTRAL_DISABLE_BACKGROUND_VIDEO=1 videoyu kapatır." />
+                                           Text="&#x2022; Windows animasyon azaltma tercihi açıksa arka plan videosu ve sürekli pulse animasyonları kapanır; ASTRAL_DISABLE_BACKGROUND_VIDEO=1 seçeneği videoyu ayrıca manuel kapatır." />
                                 <TextBlock FontSize="13"
                                            LineHeight="22"
                                            TextWrapping="Wrap"
@@ -302,7 +338,7 @@
                     <TextBlock VerticalAlignment="Center"
                                FontSize="11"
                                Foreground="{StaticResource MutedTextBrush}"
-                                   Text="Bu not, v2.2.34 hotfix kapsamını uygulama içinden hızlıca okuyabilmek için eklendi." />
+                                   Text="Bu not, v2.2.35 hotfix kapsamını uygulama içinden hızlıca okuyabilmek için eklendi." />
                     <Button Grid.Column="1"
                             Margin="0,0,10,0"
                             Height="40"

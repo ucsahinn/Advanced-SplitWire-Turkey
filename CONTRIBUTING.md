@@ -2,6 +2,24 @@
 
 Astral'ın ürün sınırı bilinçli olarak dardır: Windows üzerinde tek düğmeyle yalnızca seçili uygulama ve web hedeflerini kapsamak.
 
+## Geliştirme Ortamı
+
+Gerekli araçlar:
+
+- Windows 10/11 x64.
+- `global.json` ile uyumlu .NET 8 SDK (`8.0.422` feature band'i).
+- Git ve Windows PowerShell 5.1+ veya PowerShell 7+.
+- İlk NuGet restore için ağ erişimi.
+
+Repo kökünde doğrulayın:
+
+```powershell
+dotnet --version
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify.ps1
+```
+
+SDK bulunamazsa [.NET 8 SDK'yı](https://dotnet.microsoft.com/download/dotnet/8.0) kurup yeni bir terminal açın. Başarılı doğrulamanın son satırı `Dogrulama basariyla tamamlandi.` olur. `verify.ps1` varsayılan çıktılarını geçici dizinde tutar ve tamamlandığında temizler; kalıcı execution-policy değişikliği gerekmez.
+
 ## Kabul Edilen Değişiklikler
 
 - Seçili hedef bağlantı kararlılığı.

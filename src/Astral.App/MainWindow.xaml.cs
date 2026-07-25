@@ -21,6 +21,7 @@ using Astral.Core.Configuration;
 using Astral.Core.Connection;
 using Astral.Core.Diagnostics;
 using Astral.Core.Maintenance;
+using Astral.Core.Security;
 using Astral.Core.Targets;
 using Astral.Core.Updates;
 using Astral.Core.WireSock;
@@ -71,7 +72,7 @@ public partial class MainWindow : Window, IDisposable
     private static readonly Uri RepositoryUri = new(
         "https://github.com/ucsahinn/astral");
     private static readonly Uri ReleaseNotesUri = new(
-        "https://github.com/ucsahinn/astral/releases/tag/v2.2.34");
+        "https://github.com/ucsahinn/astral/releases/tag/v2.2.35");
     private static readonly Uri BackgroundVideoCdnUri = new(
         "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260328_105406_16f4600d-7a92-4292-b96e-b19156c7830a.mp4");
     private static readonly string LocalBackgroundVideoPath = Path.Combine(
@@ -1421,7 +1422,7 @@ public partial class MainWindow : Window, IDisposable
         badge.Visibility = Visibility.Visible;
         badge.Opacity = 1;
         badge.ToolTip = $"{target.Label}: {GetTargetProbeStatusText(probe.Status)}";
-        if (pulse)
+        if (pulse && !IsReducedMotionPreferred())
         {
             badge.BeginAnimation(
                 OpacityProperty,
@@ -3707,6 +3708,14 @@ public partial class MainWindow : Window, IDisposable
             return false;
         }
 
+        if (IsReducedMotionPreferred())
+        {
+            LogBackgroundVideoStatusOnce(
+                "disabled-reduced-motion",
+                "Arka plan videosu azaltilmis hareket tercihinde kapatildi.");
+            return false;
+        }
+
         if (!IsVisible || WindowState == WindowState.Minimized)
         {
             LogBackgroundVideoStatusOnce(
@@ -3837,7 +3846,7 @@ public partial class MainWindow : Window, IDisposable
         _isBackgroundVideoOpening = true;
         BackgroundVideo.Visibility = Visibility.Visible;
         BackgroundVideo.Source ??= videoUri;
-        BackgroundVideo.SpeedRatio = IsReducedMotionPreferred() ? 0.82 : 1.0;
+        BackgroundVideo.SpeedRatio = 1.0;
         LogBackgroundVideoStatusOnce(
             "playing:" + (videoUri.IsFile ? "local" : "cdn"),
             "Arka plan videosu baslatildi.",
@@ -4675,6 +4684,13 @@ public partial class MainWindow : Window, IDisposable
         {
             throw new InvalidOperationException(
                 "Güncelleme hazırlığı eksik olduğu için uygulanamadı.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(update.ExpectedSignerThumbprint))
+        {
+            AuthenticodeSignatureVerifier.VerifyFile(
+                update.ApplicatorPath,
+                update.ExpectedSignerThumbprint);
         }
 
         var startInfo = new ProcessStartInfo

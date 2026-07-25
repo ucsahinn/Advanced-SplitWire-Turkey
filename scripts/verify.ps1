@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$ArtifactsPath
+    [string]$ArtifactsPath,
+    [switch]$RequireGitleaks
 )
 
 $ErrorActionPreference = 'Stop'
@@ -152,16 +153,26 @@ try {
 
     $gitleaks = Get-Command gitleaks -ErrorAction SilentlyContinue
     if ($null -ne $gitleaks) {
+        & $gitleaks.Source git . --redact --no-banner --exit-code 1
+        if ($LASTEXITCODE -ne 0) {
+            throw "gitleaks Git gecmisi taramasi hata kodu $LASTEXITCODE ile basarisiz oldu"
+        }
+
         & $gitleaks.Source dir . --redact --no-banner --exit-code 1
         if ($LASTEXITCODE -ne 0) {
-            throw "gitleaks secret scan hata kodu $LASTEXITCODE ile basarisiz oldu"
+            throw "gitleaks calisma agaci taramasi hata kodu $LASTEXITCODE ile basarisiz oldu"
         }
     }
     else {
-        Write-Warning 'gitleaks bulunamadi; secret scan bu makinede atlandi.'
+        if ($RequireGitleaks) {
+            throw 'gitleaks bulunamadi; zorunlu secret scan calistirilamadi.'
+        }
+
+        Write-Warning 'gitleaks bulunamadi; secret-scan=skipped.'
     }
 
-    Write-Host 'Dogrulama basariyla tamamlandi.'
+    $secretScanStatus = if ($null -ne $gitleaks) { 'passed' } else { 'skipped' }
+    Write-Host "Dogrulama basariyla tamamlandi. secret-scan=$secretScanStatus"
 }
 finally {
     Pop-Location

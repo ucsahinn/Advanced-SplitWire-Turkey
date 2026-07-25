@@ -4,7 +4,8 @@ param(
     [string]$CodeSigningCertificatePath,
     [string]$CodeSigningCertificatePassword,
     [string]$TimestampUrl = 'http://timestamp.digicert.com',
-    [switch]$RequireCodeSigning
+    [switch]$RequireCodeSigning,
+    [switch]$RequireGitleaks
 )
 
 $ErrorActionPreference = 'Stop'
@@ -31,6 +32,7 @@ $wireSockInstallerHash = 'FA3F483DA7EA1AE6C234F95BECB0AA6A18E7EB18B944D3FFB4518D
 $wireSockInstallerSource = Join-Path $root "vendor\wiresock\$wireSockInstallerName"
 $buildArtifactsPath = Join-Path ([IO.Path]::GetTempPath()) (
     'astral-release-' + [guid]::NewGuid().ToString('N'))
+$officialRelease = if ($RequireCodeSigning) { 'true' } else { 'false' }
 
 function New-UpdateManifest {
     param(
@@ -99,7 +101,8 @@ Push-Location $root
 
 try {
     & "$PSScriptRoot\verify.ps1" `
-        -ArtifactsPath (Join-Path $buildArtifactsPath 'verify')
+        -ArtifactsPath (Join-Path $buildArtifactsPath 'verify') `
+        -RequireGitleaks:$RequireGitleaks
 
     if (Test-Path -LiteralPath $output) {
         Remove-Item -LiteralPath $output -Recurse -Force
@@ -112,6 +115,7 @@ try {
         --output $output `
         --artifacts-path (Join-Path $buildArtifactsPath 'publish') `
         --disable-build-servers `
+        -p:AstralOfficialRelease=$officialRelease `
         -p:DebugType=None `
         -p:DebugSymbols=false
     if ($LASTEXITCODE -ne 0) {
@@ -119,6 +123,20 @@ try {
     }
 
     & "$PSScriptRoot\prepare-background-video.ps1" -PublishDirectory $output
+
+    $webProxyExecutable = Join-Path $output 'Astral.WebProxy.exe'
+    if (-not (Test-Path -LiteralPath $webProxyExecutable)) {
+        throw "Single-file Astral.WebProxy executable bulunamadi: $webProxyExecutable"
+    }
+
+    $unexpectedWebProxyFiles = @(
+        'Astral.WebProxy.dll',
+        'Astral.WebProxy.deps.json',
+        'Astral.WebProxy.runtimeconfig.json'
+    ) | Where-Object { Test-Path -LiteralPath (Join-Path $output $_) }
+    if ($unexpectedWebProxyFiles.Count -gt 0) {
+        throw "Release WebProxy single-file olmali; beklenmeyen dosyalar: $($unexpectedWebProxyFiles -join ', ')"
+    }
 
     if (Test-Path -LiteralPath $wireSockInstallerSource) {
         $wireSockInstallerActualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $wireSockInstallerSource).Hash
@@ -161,6 +179,18 @@ try {
         -RootDirectory $output `
         -Version $version `
         -ManifestFileName 'astral.update-manifest.json'
+
+    if ($RequireGitleaks) {
+        $gitleaks = Get-Command gitleaks -ErrorAction SilentlyContinue
+        if ($null -eq $gitleaks) {
+            throw 'gitleaks bulunamadi; release paketi secret scan calistirilamadi.'
+        }
+
+        & $gitleaks.Source dir $output --redact --no-banner --exit-code 1
+        if ($LASTEXITCODE -ne 0) {
+            throw "Release paketi gitleaks taramasi hata kodu $LASTEXITCODE ile basarisiz oldu"
+        }
+    }
 
     if (Test-Path -LiteralPath $archive) {
         Remove-Item -LiteralPath $archive -Force

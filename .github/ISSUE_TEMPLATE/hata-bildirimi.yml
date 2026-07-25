@@ -32,7 +32,7 @@ body:
     id: dependencies
     attributes:
       label: Hedef uygulama, tarayıcı ve WireSock sürümleri
-      placeholder: Discord Stable 1.0.x / Roblox 2.x / Chrome 126 veya Edge 126 / WireSock VPN Client 1.4.7.1
+      placeholder: Discord Stable 1.0.x / Chrome veya Edge sürümü / WireSock VPN Client 1.4.7.1
     validations:
       required: true
   - type: input
