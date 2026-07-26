@@ -49,7 +49,8 @@ jobs:
           $tagVersion = $tag.TrimStart('v')
           $versionedProjects = @(
             'src/Astral.App/Astral.App.csproj',
-            'src/Astral.Updater/Astral.Updater.csproj'
+            'src/Astral.Updater/Astral.Updater.csproj',
+            'src/Astral.WebProxy/Astral.WebProxy.csproj'
           )
           foreach ($projectPath in $versionedProjects) {
             $project = [xml](Get-Content -Raw -LiteralPath $projectPath)
