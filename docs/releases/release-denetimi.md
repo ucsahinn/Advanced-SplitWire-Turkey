@@ -16,7 +16,7 @@ Bu doküman, GitHub Releases yüzeyindeki sürüm kararlarını ve yayın kapıs
 
 ## Güncel Sürüm Kararı
 
-Güncel yayın adayı `v2.2.36` olarak doğrulanır; yayınlanmadan önce aynı release kapıları tekrar çalıştırılır.
+Güncel public yayın `v2.2.36` olarak doğrulandı. Sonraki yayın adayında aynı release kapıları yeniden çalıştırılır.
 
 Neden `v2.2.36`?
 
@@ -46,7 +46,7 @@ Neden `v2.2.36`?
 
 | Release | Canlı durum | Asset durumu | Karar | Gerekçe |
 | --- | --- | --- | --- | --- |
-| `v2.2.36` | Aday | Sertifikasız paket doğrulaması bekliyor | Güncel aday | v2.2.35 güvenlik sıkılaştırmalarını açıkça imzasız dağıtır; GitHub digest, SHA-256, manifest ve Gitleaks kapıları zorunlu kalır. |
+| `v2.2.36` | Yayında | 4 asset; public digest, SHA-256, manifest ve imza durumu doğrulandı | Koru | v2.2.35 güvenlik sıkılaştırmalarını açıkça imzasız dağıtır; GitHub digest, SHA-256, manifest ve Gitleaks kapıları geçti. |
 | `v2.2.35` | Tag var, release yok | Workflow imza kapısında durdu | v2.2.36 ile üstlen | WebProxy SSRF, authority ve kaynak tüketimi sertleştirmesi; reduced-motion uyumu; companion trust zinciri; genişletilmiş test ve secret-scan kapıları korunur. |
 | `v2.2.34` | Yayında | 4 asset | v2.2.36 ile üstlen | App proof DNS paralelleştirme, recheck sırasında app aksiyonu bekliyorsa tam WebProxy proof reuse, app proof temizlenince stale web proof ile `Connected` yanlış-pozitifinin engellenmesi ve bağlantı/recheck sürelerinin düşürülmesi. |
 | `v2.2.33` | Yayında | 4 asset | v2.2.34 ile üstlen | Tam hedef-ID WebProxy proof'un final bulk re-probe timeout'larıyla düşürülmemesi, app hedefleri eksikken `TargetActionRequired` durumunun korunması ve web-only seçimlerde `-lac` kapatılarak non-target direct trafiğin korunması. |
@@ -99,6 +99,16 @@ Neden `v2.2.36`?
 - `dotnet build`, Core tests, Windows tests, `scripts/verify.ps1`, `scripts/build-release.ps1`, `git diff --check` ve Gitleaks geçer.
 - Discord app kapsamı için yönetici PowerShell'de `scripts\smoke-live-connect.ps1 -TargetIds discord -RequireTargetActionRecheck` çalışır; `TargetActionRequired`, hedef process açılma, `Kontrol Et` recheck'i, `HealthTargetAppProofRequired=True`, `HealthTargetAppProofVerified=True`, boş `HealthTargetAppProofMissingTargetIds`, `HealthHasRequiredApplicationProof=True` ve tam web+app kanıtı rapora geçer.
 - GitHub Release assetleri ve SHA-256 dosyaları yayınlandıktan sonra erişilebilir olarak doğrulanır.
+
+## v2.2.36 Public Doğrulama Kanıtı
+
+- [Release workflow runı 31129235383](https://github.com/ucsahinn/astral/actions/runs/31129235383): tüm job ve release adımları `success`.
+- [Public v2.2.36 release](https://github.com/ucsahinn/astral/releases/tag/v2.2.36): draft ve prerelease değil.
+- Dört asset GitHub API'sinde `uploaded` durumunda ve digestleri bağımsız indirmelerle eşleşti.
+- Versioned ve stable ZIP SHA-256: `14259B5291033762DCD6170CBAFA2A9C9BDD2943235F14260CB78B50CDD3F7F1`.
+- `astral.update-manifest.json` sürümü `2.2.36`; 472 manifest girdisinin boyut ve SHA-256 değerleri doğrulandı, ZIP toplam 473 dosya içeriyor.
+- `Astral.exe`, `Astral.Updater.exe` ve `Astral.WebProxy.exe` dosyaları `2.2.36.0` ve beklenen şekilde `NotSigned`.
+- Release notunda Authenticode imzası bulunmadığı ve Windows SmartScreen uyarısı görülebileceği açıkça yer alıyor.
 
 ## Eski İstemci Geçişi
 
