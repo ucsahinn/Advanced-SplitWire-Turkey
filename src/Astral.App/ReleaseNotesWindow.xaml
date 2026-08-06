@@ -82,7 +82,7 @@
                                 VerticalAlignment="Center">
                         <TextBlock FontSize="22"
                                    FontWeight="SemiBold"
-                                   Text="Astral VPN v2.2.35" />
+                                   Text="Astral VPN v2.2.36" />
                         <TextBlock Margin="0,5,0,0"
                                    FontSize="12"
                                    Foreground="{StaticResource SecondaryTextBrush}"
@@ -109,7 +109,7 @@
                                            FontSize="14"
                                            LineHeight="21"
                                            TextWrapping="Wrap"
-                                           Text="v2.2.35, Astral.WebProxy bağlantı sınırlarını sıkılaştırır, azaltılmış hareket tercihinde sürekli animasyonu kapatır ve CI/release secret scan kapısını zorunlu hale getirir. Ürün kapsamı yine yalnız seçili uygulama ve web hedefleriyle sınırlıdır." />
+                                           Text="v2.2.36, v2.2.35 güvenlik sıkılaştırmalarını sertifikasız dağıtım politikasıyla yayımlar. Paket Authenticode imzası taşımaz; bütünlük GitHub asset digest, SHA-256 ve update manifest ile doğrulanır." />
                             </StackPanel>
                         </Border>
 
@@ -338,7 +338,7 @@
                     <TextBlock VerticalAlignment="Center"
                                FontSize="11"
                                Foreground="{StaticResource MutedTextBrush}"
-                                   Text="Bu not, v2.2.35 hotfix kapsamını uygulama içinden hızlıca okuyabilmek için eklendi." />
+                                   Text="Bu not, v2.2.36 hotfix kapsamını ve sertifikasız paket sınırını uygulama içinden hızlıca okuyabilmek için eklendi." />
                     <Button Grid.Column="1"
                             Margin="0,0,10,0"
                             Height="40"

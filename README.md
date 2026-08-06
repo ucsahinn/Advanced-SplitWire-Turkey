@@ -124,6 +124,7 @@ Değerler uyuşmazsa ZIP'i çalıştırmayın; iki dosyayı da silip resmi relea
 | Sorun giderme | [docs/sorun-giderme.md](docs/sorun-giderme.md) |
 | Mimari | [docs/mimari.md](docs/mimari.md) |
 | Kaynak sorun denetimi | [docs/kaynak-sorun-denetimi.md](docs/kaynak-sorun-denetimi.md) |
+| v2.2.36 release notu | [docs/releases/v2.2.36.md](docs/releases/v2.2.36.md) |
 | v2.2.35 release notu | [docs/releases/v2.2.35.md](docs/releases/v2.2.35.md) |
 
 ## Geliştirme
@@ -150,7 +151,7 @@ Yerel contributor paketi üretmek `artifacts` altındaki aynı adlı çıktılar
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-release.ps1
 ```
 
-Resmi release; temiz doğrulama, zorunlu Git-geçmişi/çalışma-ağacı/paket secret scan'leri, sürüm/tag eşliği, release notu, paket manifest/SHA denetimi ve zorunlu Authenticode imzası tamamlandıktan sonra GitHub Actions üzerinden üretilir. İmzalı Astral çalışma anında Updater ve WebProxy yardımcı ikililerinin aynı yayıncı imzasıyla eşleşmesini de zorunlu kılar.
+Resmi release; temiz doğrulama, zorunlu Git-geçmişi/çalışma-ağacı/paket secret scan'leri, sürüm/tag eşliği, release notu ve paket manifest/SHA denetimi tamamlandıktan sonra GitHub Actions üzerinden üretilir. Kod imzalama sertifikası yapılandırılmışsa paket Authenticode ile imzalanır; sertifika yoksa paket imzasız yayımlanır ve bu durum release notunda açıkça belirtilir. Her iki durumda da GitHub asset digest, SHA-256 ve update manifest kapıları zorunludur. İmzalı Astral çalışma anında Updater ve WebProxy yardımcı ikililerinin aynı yayıncı imzasıyla eşleşmesini de zorunlu kılar.
 
 ## Destek ve Güvenlik
 

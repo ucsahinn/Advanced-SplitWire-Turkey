@@ -380,7 +380,7 @@ static Task VerifiedExecutableStagerCopiesBeforeTrustVerificationAsync()
         var staged = VerifiedExecutableStager.Stage(
             source,
             Path.Combine(root, "protected"),
-            "2.2.35",
+            "2.2.36",
             restrictAccess: false,
             path =>
             {

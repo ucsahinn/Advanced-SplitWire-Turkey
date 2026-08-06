@@ -92,22 +92,28 @@ jobs:
           $certificatePath = Join-Path $env:RUNNER_TEMP 'astral-codesign.pfx'
 
           try {
-            if ([string]::IsNullOrWhiteSpace($env:ASTRAL_CODESIGN_PFX_B64) -or
-                [string]::IsNullOrWhiteSpace($env:ASTRAL_CODESIGN_PFX_PASSWORD)) {
-              throw 'Release icin ASTRAL_CODESIGN_PFX_B64 ve ASTRAL_CODESIGN_PFX_PASSWORD secret degerleri zorunludur.'
+            $hasCertificate = -not [string]::IsNullOrWhiteSpace($env:ASTRAL_CODESIGN_PFX_B64)
+            $hasPassword = -not [string]::IsNullOrWhiteSpace($env:ASTRAL_CODESIGN_PFX_PASSWORD)
+            if ($hasCertificate -ne $hasPassword) {
+              throw 'Kod imzalama secret degerleri ya birlikte verilmeli ya da ikisi de bos birakilmalidir.'
             }
 
-            [IO.File]::WriteAllBytes(
-              $certificatePath,
-              [Convert]::FromBase64String($env:ASTRAL_CODESIGN_PFX_B64))
-            $signArgs += @(
-              '-CodeSigningCertificatePath',
-              $certificatePath
-            )
-            ./scripts/build-release.ps1 `
-              -RequireGitleaks `
-              -RequireCodeSigning `
-              @signArgs
+            if ($hasCertificate) {
+              [IO.File]::WriteAllBytes(
+                $certificatePath,
+                [Convert]::FromBase64String($env:ASTRAL_CODESIGN_PFX_B64))
+              $signArgs += @(
+                '-CodeSigningCertificatePath',
+                $certificatePath
+              )
+              ./scripts/build-release.ps1 `
+                -RequireGitleaks `
+                -RequireCodeSigning `
+                @signArgs
+            }
+            else {
+              ./scripts/build-release.ps1 -RequireGitleaks
+            }
           }
           finally {
             if (Test-Path -LiteralPath $certificatePath) {
@@ -153,10 +159,15 @@ jobs:
             $signingStatus = (Get-Content -Raw -LiteralPath $signingStatusPath).Trim()
           }
 
-          if ($signingStatus -ne 'signed') {
-            throw "Release paketi Authenticode imzali degil: $signingStatus"
+          if ($signingStatus -notin @('signed', 'unsigned')) {
+            throw "Gecersiz kod imzalama durumu: $signingStatus"
           }
-          $signingText = 'Kod imzalama: Authenticode imzalı paket.'
+          if ($signingStatus -eq 'signed') {
+            $signingText = 'Kod imzalama: Authenticode imzalı paket.'
+          }
+          else {
+            $signingText = 'Kod imzalama: Authenticode imzası yok. Bütünlük GitHub asset digest, SHA-256 ve update manifest ile doğrulanır; Windows SmartScreen uyarı gösterebilir.'
+          }
 
           $notesPath = Join-Path 'artifacts' "release-notes-$tag.md"
           $versionedNotesPath = Join-Path 'docs/releases' "$tag.md"
