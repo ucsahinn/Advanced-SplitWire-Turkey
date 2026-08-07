@@ -16,6 +16,19 @@ if ([string]::IsNullOrWhiteSpace($ArtifactsPath)) {
 Push-Location $root
 
 try {
+    $embeddedReleaseArchiveHashes = @(
+        Get-ChildItem -LiteralPath 'docs\releases' -Filter 'v*.md' -File |
+            Select-String -Pattern '(?m)^- Nihai ZIP SHA-256: `[A-Fa-f0-9]{64}`'
+    )
+    if ($embeddedReleaseArchiveHashes.Count -gt 0) {
+        $formattedMatches = $embeddedReleaseArchiveHashes |
+            ForEach-Object {
+                $relativePath = Resolve-Path -LiteralPath $_.Path -Relative
+                "${relativePath}:$($_.LineNumber): $($_.Line.Trim())"
+            }
+        throw "Release notu workflow rebuild oncesi exact ZIP SHA-256 degeri gomemez; public SHA workflow asset ozetinden uretilir.`n$($formattedMatches -join "`n")"
+    }
+
     dotnet build Astral.sln `
         --configuration Release `
         --artifacts-path $ArtifactsPath `

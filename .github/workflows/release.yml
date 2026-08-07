@@ -185,6 +185,14 @@ jobs:
           "@
           }
 
+          # Version-controlled notes must not carry a pre-workflow local ZIP
+          # digest. Strip the legacy line when repairing an existing tag so
+          # the release body contains only the hash built by this workflow.
+          $notes = [regex]::Replace(
+            $notes,
+            '(?m)^- Nihai ZIP SHA-256: `[A-Fa-f0-9]{64}`;[^\r\n]*(\r?\n)?',
+            '')
+
           $releaseAssetSummary = @"
 
           ## Yayın Asset'leri
