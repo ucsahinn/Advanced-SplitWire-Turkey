@@ -54,7 +54,15 @@ jobs:
 
       - name: Test, güvenlik taraması ve portable Windows x64 paketi üret
         shell: pwsh
-        run: ./scripts/build-release.ps1 -RequireGitleaks
+        run: |
+          try {
+            ./scripts/build-release.ps1 -RequireGitleaks
+          }
+          catch {
+            $message = $_.Exception.Message.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Host "::error title=Astral CI::$message"
+            throw
+          }
 
       - name: Uygulama paketini yükle
         if: matrix.os == 'windows-2025'
