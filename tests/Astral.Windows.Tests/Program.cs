@@ -208,6 +208,7 @@ static void RenderWindows()
                     VerifyConnectedTargetCardsRequireProbeEvidence();
                     VerifyQueuedSnapshotsDoNotOverwriteDirectUiState();
                     VerifyStartupUpdateCheckShowsAvailableUpdate();
+                    VerifyStartupUpdateFailureLeavesRetryAvailable();
                     VerifyWindowLifetimeBehavior();
                     VerifySingleInstanceMessageIncludesProcessHint();
                     VerifyPortableInstallDiagnosticsSanitizesLegacyBrand();
@@ -368,7 +369,7 @@ static void RenderMainWindow()
         SaveWindowPng(window, Path.Combine(
             FindRepositoryRoot(),
             "artifacts",
-            "ui-main-window-v2.2.39.png"));
+            "ui-main-window-v2.2.40.png"));
 
         Assert(window.ResizeMode == ResizeMode.NoResize);
         Assert(window.Width == 1280);
@@ -429,15 +430,12 @@ static void RenderMainWindow()
         Assert(!buttonNames.Contains("Tanılama raporu hazırla"));
         Assert(buttonNames.Contains("Sürüm notlarını aç"));
         Assert(!buttonNames.Any(button => button.Contains("WireSock", StringComparison.OrdinalIgnoreCase)));
-        Assert(!buttonNames.Any(button =>
-            button.Contains("Denetle", StringComparison.Ordinal)
-            || button.Contains("Güncelle", StringComparison.Ordinal)
-            || button.Contains("Tekrar dene", StringComparison.Ordinal)
-            || button.Contains("Güncel", StringComparison.Ordinal)));
+        Assert(buttonNames.Any(button =>
+            button.Contains("Güncelleme", StringComparison.Ordinal)));
         Assert(!buttonNames.Contains("Yükle"));
         var updateButton = FindVisualChildren<Button>(window)
             .Single(button => button.Name == "AutoUpdateButton");
-        Assert(updateButton.Visibility == Visibility.Collapsed);
+        Assert(updateButton.Visibility == Visibility.Visible);
         var targetTestButton = FindVisualChildren<Button>(window)
             .Single(button => button.Name == "TargetTestButton");
         Assert(!targetTestButton.IsEnabled);
@@ -1131,6 +1129,46 @@ static void VerifyStartupUpdateCheckShowsAvailableUpdate()
     }
 }
 
+static void VerifyStartupUpdateFailureLeavesRetryAvailable()
+{
+    MainWindow? window = null;
+    var root = CreateTemporaryDirectory();
+
+    try
+    {
+        var paths = new AppPaths(root);
+        var updateService = new AppUpdateService(
+            new HttpClient(new FailingUpdateHttpMessageHandler()),
+            paths,
+            new FakeVerifiedDownloader(),
+            requireUpdateAuthenticode: false);
+        window = CreateMainWindow(root, updateService: updateService);
+        window.Show();
+        window.UpdateLayout();
+
+        var updateButton = FindVisualChildren<Button>(window)
+            .Single(button => button.Name == "AutoUpdateButton");
+        var diagnosticsStatus = FindVisualChildren<TextBlock>(window)
+            .Single(block => block.Name == "DiagnosticsStatus");
+
+        PumpDispatcherUntil(
+            () => diagnosticsStatus.Text == "Güncelleme denetlenemedi. Tekrar dene.",
+            TimeSpan.FromSeconds(10));
+
+        Assert(diagnosticsStatus.Text == "Güncelleme denetlenemedi. Tekrar dene.");
+        Assert(updateButton.Visibility == Visibility.Visible);
+        Assert(updateButton.Content?.ToString() == "↻ Denetle");
+        Assert(AutomationProperties.GetName(updateButton) == "Güncellemeleri denetle");
+
+        Console.WriteLine("GEÇTİ Başlangıç güncelleme hatası elle yeniden denetlemeyi açık bıraktı");
+    }
+    finally
+    {
+        ForceCloseWindow(window);
+        Directory.Delete(root, recursive: true);
+    }
+}
+
 static void VerifyTrayExitDoesNotHangWhenControllerCleanupIsSlow()
 {
     MainWindow? window = null;
@@ -1398,7 +1436,7 @@ static MainWindow CreateMainWindow(
         new FakeStartupLaunchService(),
         new FakeWireSockUninstaller(),
         updateService ?? new AppUpdateService(
-            new HttpClient(),
+            new HttpClient(new FailingUpdateHttpMessageHandler()),
             paths,
             new FakeVerifiedDownloader(),
             requireUpdateAuthenticode: false),
@@ -1693,6 +1731,14 @@ file sealed class FakeUpdateHttpMessageHandler : HttpMessageHandler
         {
             Content = new StringContent(content, Encoding.UTF8, "text/plain")
         };
+}
+
+file sealed class FailingUpdateHttpMessageHandler : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable));
 }
 
 file sealed class FakeProfileProvisioner(string profilePath) : IProfileProvisioner

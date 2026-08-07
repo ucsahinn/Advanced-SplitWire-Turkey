@@ -72,7 +72,7 @@ public partial class MainWindow : Window, IDisposable
     private static readonly Uri RepositoryUri = new(
         "https://github.com/ucsahinn/astral");
     private static readonly Uri ReleaseNotesUri = new(
-        "https://github.com/ucsahinn/astral/releases/tag/v2.2.39");
+        "https://github.com/ucsahinn/astral/releases/tag/v2.2.40");
     private static readonly string LocalBackgroundVideoPath = Path.Combine(
         AppContext.BaseDirectory,
         "Assets",
@@ -3627,6 +3627,7 @@ public partial class MainWindow : Window, IDisposable
 
     private void BackgroundVideo_MediaEnded(object sender, RoutedEventArgs e)
     {
+        _isBackgroundVideoOpening = false;
         if (!ShouldPlayBackgroundVideo(_controller.Snapshot))
         {
             StopBackgroundVideo();
@@ -4816,10 +4817,7 @@ public partial class MainWindow : Window, IDisposable
     private void ApplyUpdateControls(bool isBusy)
     {
         var hasUpdate = _pendingUpdate?.Status == AppUpdateCheckStatus.UpdateAvailable;
-        var shouldShowButton = hasUpdate || _isUpdateOperationRunning;
-        AutoUpdateButton.Visibility = shouldShowButton
-            ? Visibility.Visible
-            : Visibility.Collapsed;
+        AutoUpdateButton.Visibility = Visibility.Visible;
 
         if (hasUpdate)
         {
@@ -4830,20 +4828,26 @@ public partial class MainWindow : Window, IDisposable
                 AutoUpdateButton,
                 $"v{versionText} güncellemesini yükle");
         }
-        else
+        else if (_isUpdateCheckRunning)
         {
-            AutoUpdateButton.Content = "↻ Güncelle";
-            AutoUpdateButton.ToolTip = "Yeni sürüm varsa burada görünür.";
+            AutoUpdateButton.Content = "↻ Denetleniyor";
+            AutoUpdateButton.ToolTip = "Yeni sürüm olup olmadığı denetleniyor.";
             AutomationProperties.SetName(
                 AutoUpdateButton,
-                "Yeni sürüm varsa görünen güncelleme düğmesi");
+                "Güncellemeler denetleniyor");
+        }
+        else
+        {
+            AutoUpdateButton.Content = "↻ Denetle";
+            AutoUpdateButton.ToolTip = "Yeni sürüm olup olmadığını denetle.";
+            AutomationProperties.SetName(
+                AutoUpdateButton,
+                "Güncellemeleri denetle");
         }
 
-        SetUpdateControlsEnabled(shouldShowButton
-            && hasUpdate
-            && !_isUpdateOperationRunning
+        SetUpdateControlsEnabled(!_isUpdateOperationRunning
             && !_isUpdateCheckRunning
-            && !isBusy);
+            && (!hasUpdate || !isBusy));
     }
 
     private void SetUpdateControlsEnabled(bool enabled)

@@ -82,11 +82,11 @@
                                 VerticalAlignment="Center">
                         <TextBlock FontSize="22"
                                    FontWeight="SemiBold"
-                                   Text="Astral VPN v2.2.39" />
+                                   Text="Astral VPN v2.2.40" />
                         <TextBlock Margin="0,5,0,0"
                                    FontSize="12"
                                    Foreground="{StaticResource SecondaryTextBrush}"
-                                   Text="Temiz Windows ve portable paket doğrulaması" />
+                                   Text="Güncelleme denetimi erişim düzeltmesi" />
                     </StackPanel>
                 </Grid>
 
@@ -109,7 +109,7 @@
                                            FontSize="14"
                                            LineHeight="21"
                                            TextWrapping="Wrap"
-                                           Text="v2.2.39, v2.2.38 bağlantı düzeltmelerini korur ve yayımlanan self-contained paketi temiz Windows runner'larında, Unicode ve boşluk içeren klasör yolunda gerçek başlangıç self-test'iyle doğrular." />
+                                           Text="v2.2.40, başlangıç güncelleme denetimi ağ veya GitHub hatasıyla sonuçlansa bile Denetle düğmesini görünür bırakır; kullanıcı uygulamayı yeniden başlatmadan elle tekrar deneyebilir." />
                             </StackPanel>
                         </Border>
 
@@ -123,20 +123,20 @@
                                 <TextBlock FontSize="12"
                                            FontWeight="SemiBold"
                                            Foreground="{StaticResource AccentBrush}"
-                                           Text="V2.2.39 DEĞİŞİKLİKLERİ" />
+                                           Text="V2.2.40 DEĞİŞİKLİKLERİ" />
                                 <TextBlock Margin="0,10,0,0"
                                            FontSize="13"
                                            LineHeight="22"
                                            TextWrapping="Wrap"
-                                           Text="&#x2022; Release ZIP'i SHA-256, update manifest, eksiksiz dosya kümesi ve x64 PE mimarisiyle otomatik doğrulanır." />
+                                           Text="&#x2022; Güncelleme bulunmadığında veya denetim başarısız olduğunda üst çubukta Denetle düğmesi görünür kalır." />
                                 <TextBlock FontSize="13"
                                            LineHeight="22"
                                            TextWrapping="Wrap"
-                                           Text="&#x2022; Paket boşluk ve Türkçe karakter içeren geçici bir klasöre açılır; Astral.exe profil veya VPN durumu oluşturmadan başlangıç self-test'ini tamamlar." />
+                                           Text="&#x2022; Denetim sürerken düğme Denetleniyor durumunu gösterir; yeni sürüm bulunduğunda aynı düğme Güncelle eylemine dönüşür." />
                                 <TextBlock FontSize="13"
                                            LineHeight="22"
                                            TextWrapping="Wrap"
-                                           Text="&#x2022; CI aynı tam paketi temiz windows-2022 ve windows-2025 runner'larında üretip sınar; yayın workflow'u aynı kapıyı tekrar uygular." />
+                                           Text="&#x2022; GitHub 503 hata senaryosu ve başarılı güncelleme bulma senaryosu ayrı gerçek WPF testleriyle doğrulanır." />
                                 <TextBlock FontSize="13"
                                            LineHeight="22"
                                            TextWrapping="Wrap"
@@ -194,7 +194,7 @@
                     <TextBlock VerticalAlignment="Center"
                                FontSize="11"
                                Foreground="{StaticResource MutedTextBrush}"
-                               Text="v2.2.39 release notu" />
+                               Text="v2.2.40 release notu" />
                     <Button Grid.Column="1"
                             Margin="0,0,10,0"
                             Height="40"

@@ -1156,7 +1156,7 @@
                                VerticalAlignment="Center"
                                FontSize="11"
                                Foreground="{StaticResource SecondaryTextBrush}"
-                               Text="v2.2.39" />
+                               Text="v2.2.40" />
 
                     <Button Grid.Column="4"
                             x:Name="AutoUpdateButton"
@@ -1166,10 +1166,10 @@
                             VerticalAlignment="Center"
                             Style="{StaticResource InstallUpdateButtonStyle}"
                             Click="AutoUpdate_Click"
-                            Content="↻ Güncelle"
-                            Visibility="Collapsed"
-                            ToolTip="Yeni sürüm varsa burada görünür"
-                            AutomationProperties.Name="Yeni sürüm varsa görünen güncelleme düğmesi" />
+                            Content="↻ Denetle"
+                            Visibility="Visible"
+                            ToolTip="Yeni sürüm olup olmadığını denetle"
+                            AutomationProperties.Name="Güncellemeleri denetle" />
 
                     <Button Grid.Column="5"
                             Margin="0,0,8,0"
