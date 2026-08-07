@@ -59,6 +59,15 @@ try {
         -NoProfile `
         -NonInteractive `
         -ExecutionPolicy Bypass `
+        -File 'tests\Astral.Portable.Tests\Program.ps1'
+    if ($LASTEXITCODE -ne 0) {
+        throw "Portable paket testleri hata kodu $LASTEXITCODE ile basarisiz oldu"
+    }
+
+    powershell.exe `
+        -NoProfile `
+        -NonInteractive `
+        -ExecutionPolicy Bypass `
         -File 'tests\Astral.Smoke.Tests\Program.ps1'
     if ($LASTEXITCODE -ne 0) {
         throw "Smoke helper testleri hata kodu $LASTEXITCODE ile basarisiz oldu"

@@ -16,9 +16,13 @@ concurrency:
 
 jobs:
   verify:
-    name: Windows doğrulama
-    runs-on: windows-2025
-    timeout-minutes: 15
+    name: Windows doğrulama (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
 
     steps:
       - name: Kaynak kodu al
@@ -48,23 +52,12 @@ jobs:
           Expand-Archive -LiteralPath $archive -DestinationPath $toolDirectory
           $toolDirectory | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
 
-      - name: Test ve güvenlik taraması
+      - name: Test, güvenlik taraması ve portable Windows x64 paketi üret
         shell: pwsh
-        run: ./scripts/verify.ps1 -RequireGitleaks
-
-      - name: Windows x64 paketi üret
-        shell: pwsh
-        run: >-
-          dotnet publish
-          src/Astral.App/Astral.App.csproj
-          --configuration Release
-          --runtime win-x64
-          --self-contained true
-          --output artifacts/publish/win-x64
-          -p:DebugType=None
-          -p:DebugSymbols=false
+        run: ./scripts/build-release.ps1 -RequireGitleaks
 
       - name: Uygulama paketini yükle
+        if: matrix.os == 'windows-2025'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: Astral-win-x64

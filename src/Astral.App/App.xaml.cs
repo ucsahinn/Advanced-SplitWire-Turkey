@@ -37,6 +37,7 @@ public partial class App : System.Windows.Application, IDisposable
     private const string DiagnosticExitEventName = @"Local\Astral.VaultekBilisim.DiagnosticExit";
     private const string DiagnosticConnectSmokeArgument = "--diagnostic-connect-smoke";
     private const string DiagnosticExitSmokeArgument = "--diagnostic-exit-smoke";
+    private const string PortablePackageSelfTestArgument = "--portable-package-self-test";
     private const string BackgroundStartArgument = "--background-start";
     private static readonly TimeSpan ExitControllerDisposeTimeout = TimeSpan.FromSeconds(2);
     internal static TimeSpan ExitControllerDisposeTimeoutForTesting =>
@@ -56,6 +57,20 @@ public partial class App : System.Windows.Application, IDisposable
     {
         WindowsPresentationEnvironment.EnsureProcessEnvironment();
         base.OnStartup(e);
+
+        if (HasArgument(e.Args, PortablePackageSelfTestArgument))
+        {
+            try
+            {
+                PortablePackageSelfTest.Verify(AppContext.BaseDirectory);
+                Shutdown(0);
+            }
+            catch
+            {
+                Shutdown(1);
+            }
+            return;
+        }
 
         _singleInstanceMutex = new Mutex(
             initiallyOwned: true,

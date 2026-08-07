@@ -2,6 +2,8 @@
 
 Astral ZIP içinden çalışan portable bir Windows uygulamasıdır. Seçili uygulama veya web hedefleri için dar kapsamlı bağlantı planı oluşturur; tüm bilgisayarı veya tüm tarayıcıyı tünellemez.
 
+Desteklenen dağıtım ortamı Windows 10/11 x64'tür. ZIP self-contained .NET 8 çalışma zamanını içerir; kullanıcıların ayrıca .NET kurması gerekmez. ARM64, x86 ve Windows 8.1 veya daha eski sürümler desteklenmez.
+
 ## İlk Çalıştırma
 
 1. `Astral-win-x64.zip` arşivini release sayfasından indirin.

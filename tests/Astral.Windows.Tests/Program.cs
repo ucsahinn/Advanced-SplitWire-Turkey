@@ -98,6 +98,7 @@ static void RunWindowLifetimeOnly()
 VerifyScopedProxyFallbackMessageStaysTurkish();
 VerifyUnsignedReleaseTrustDiagnosticIsHonest();
 VerifyStartupArgumentsAreRedacted();
+VerifyPortablePackageSelfTestUsesRelativeUnicodePath();
 RenderWindows();
 
 var temporaryFile = Path.Combine(
@@ -124,6 +125,56 @@ try
 finally
 {
     File.Delete(temporaryFile);
+}
+
+static void VerifyPortablePackageSelfTestUsesRelativeUnicodePath()
+{
+    var root = Path.Combine(
+        Path.GetTempPath(),
+        $"Astral Taşınabilir Şüphe {Guid.NewGuid():N}");
+    var requiredPaths = new[]
+    {
+        "Astral.Updater.exe",
+        "Astral.WebProxy.exe",
+        Path.Combine("Assets", "background.mp4"),
+        Path.Combine("installers", "wiresock-vpn-client-x64-1.4.7.1.msi"),
+        "astral.update-manifest.json"
+    };
+
+    try
+    {
+        foreach (var relativePath in requiredPaths)
+        {
+            var path = Path.Combine(root, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, "portable");
+        }
+
+        PortablePackageSelfTest.Verify(root);
+        File.Delete(Path.Combine(
+            root,
+            "installers",
+            "wiresock-vpn-client-x64-1.4.7.1.msi"));
+        PortablePackageSelfTest.Verify(root);
+        File.Delete(Path.Combine(root, "Astral.WebProxy.exe"));
+        try
+        {
+            PortablePackageSelfTest.Verify(root);
+            throw new InvalidOperationException("Eksik companion portable self-test tarafından kabul edildi.");
+        }
+        catch (FileNotFoundException)
+        {
+        }
+
+        Console.WriteLine("GEÇTİ Portable başlangıç self-test'i göreli Unicode yolda zorunlu dosyaları doğrular");
+    }
+    finally
+    {
+        if (Directory.Exists(root))
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
 }
 
 static void RenderWindows()
@@ -317,7 +368,7 @@ static void RenderMainWindow()
         SaveWindowPng(window, Path.Combine(
             FindRepositoryRoot(),
             "artifacts",
-            "ui-main-window-v2.2.38.png"));
+            "ui-main-window-v2.2.39.png"));
 
         Assert(window.ResizeMode == ResizeMode.NoResize);
         Assert(window.Width == 1280);

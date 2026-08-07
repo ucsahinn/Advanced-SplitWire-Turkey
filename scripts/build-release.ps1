@@ -201,6 +201,13 @@ try {
         -SourceDirectory $output `
         -ArchivePath $archive `
         -ShaPath $shaPath
+    & "$PSScriptRoot\verify-portable-package.ps1" `
+        -ArchivePath $archive `
+        -ChecksumPath $shaPath `
+        -ExpectedVersion $version
+    if ($LASTEXITCODE -ne 0) {
+        throw "Portable paket dogrulamasi hata kodu $LASTEXITCODE ile basarisiz oldu"
+    }
     Copy-Item -LiteralPath $archive -Destination $stableArchive -Force
     Set-Content `
         -LiteralPath $stableShaPath `

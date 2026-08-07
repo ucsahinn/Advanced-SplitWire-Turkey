@@ -72,7 +72,7 @@ public partial class MainWindow : Window, IDisposable
     private static readonly Uri RepositoryUri = new(
         "https://github.com/ucsahinn/astral");
     private static readonly Uri ReleaseNotesUri = new(
-        "https://github.com/ucsahinn/astral/releases/tag/v2.2.38");
+        "https://github.com/ucsahinn/astral/releases/tag/v2.2.39");
     private static readonly string LocalBackgroundVideoPath = Path.Combine(
         AppContext.BaseDirectory,
         "Assets",

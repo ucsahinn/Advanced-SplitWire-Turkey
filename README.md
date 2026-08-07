@@ -77,6 +77,8 @@ Daha teknik sınırlar için [güvenlik dokümanına](docs/guvenlik.md) ve [SECU
 
 ## Hızlı Başlangıç
 
+Dağıtım paketi Windows 10/11 x64 içindir ve .NET çalışma zamanını kendi içinde taşır; son kullanıcıya ayrıca .NET SDK veya runtime kurulumu gerekmez. ARM64, x86, Windows 8.1 ve daha eski Windows sürümleri bu release'in destek kapsamı dışındadır.
+
 1. [GitHub Releases](https://github.com/ucsahinn/astral/releases) sayfasından en güncel `Astral-win-x64.zip` arşivini ve yanındaki `Astral-win-x64.sha256.txt` dosyasını indirin.
 2. Aşağıdaki komutla ZIP özetini doğrulayın; uyuşmazlık varsa paketi açmayın.
 3. Doğrulanan ZIP içeriğini istediğiniz klasöre çıkarın.
@@ -116,6 +118,7 @@ Değerler uyuşmazsa ZIP'i çalıştırmayın; iki dosyayı da silip resmi relea
 | Sorun giderme | [docs/sorun-giderme.md](docs/sorun-giderme.md) |
 | Mimari | [docs/mimari.md](docs/mimari.md) |
 | Kaynak sorun denetimi | [docs/kaynak-sorun-denetimi.md](docs/kaynak-sorun-denetimi.md) |
+| v2.2.39 release notu | [docs/releases/v2.2.39.md](docs/releases/v2.2.39.md) |
 | v2.2.38 release notu | [docs/releases/v2.2.38.md](docs/releases/v2.2.38.md) |
 | v2.2.37 release notu | [docs/releases/v2.2.37.md](docs/releases/v2.2.37.md) |
 | v2.2.36 release notu | [docs/releases/v2.2.36.md](docs/releases/v2.2.36.md) |

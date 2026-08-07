@@ -16,20 +16,22 @@ Bu doküman, GitHub Releases yüzeyindeki sürüm kararlarını ve yayın kapıs
 
 ## Güncel Sürüm Kararı
 
-Git geçmişinde `v2.2.37` etiketi bulunur. `v2.2.38`, gerçek Discord erişim hatasını gideren yerel yayın adayıdır; tag, GitHub release ve public asset sonucu workflow tamamlanmadan oluşmuş sayılmaz.
+Git geçmişinde ve GitHub Releases yüzeyinde `v2.2.38` bulunur. `v2.2.39`, temiz Windows ve portable paket doğrulamasını release kapısına taşıyan yeni adaydır; tag, GitHub release ve public asset sonucu workflow tamamlanmadan oluşmuş sayılmaz.
 
-### v2.2.38 Yerel Aday Kapısı
+### v2.2.39 Yerel Aday Kapısı
 
-- Kaynak, testler ve üç Windows executable sürümü `2.2.38` olarak hizalanır.
+- Kaynak, testler ve üç Windows executable sürümü `2.2.39` olarak hizalanır.
 - Paket Authenticode imzası taşımaz; SmartScreen riski açıkça belgelenir. ZIP, GitHub asset digest, SHA-256 sidecar, update manifest ve Gitleaks birlikte zorunludur.
 - Optimize edilmiş yerel H.264 arka plan videosu paketlenir; gerçek WPF oynatma, azaltılmış hareket ve bozuk-dosya fallback testleri geçmeden aday hazır sayılmaz.
 - Azar, Tango ve LiVU web kapsamıdır; IMVU uygulama ve web kapsamıdır. Hedef kayıt defteri, smoke domain kataloğu ve belgeler aynı sözleşmeyi taşır.
-- Temiz build çıktısından Core, Windows, smoke helper, Updater ve WebProxy testleri çalışır. Canlı yönetici smoke matrisi ve GitHub yayını ayrı dış kapılardır.
+- Temiz build çıktısından Core, Windows, portable, smoke helper, Updater ve WebProxy testleri çalışır. Tam ZIP boşluk/Türkçe karakter içeren yola açılır, manifest ve x64 PE sözleşmesi doğrulanır, ana EXE profil durumuna dokunmayan self-test ile başlatılır.
+- Aynı tam paket zinciri `windows-2022` ve `windows-2025` temiz GitHub runner'larında zorunludur. Canlı yönetici smoke matrisi ve GitHub yayını ayrı dış kapılardır.
 
-Neden `v2.2.38`?
+Neden `v2.2.39`?
 
 - v2.2.37 gerçek Windows koşusunda scoped WebProxy'nin yalnız `CONNECT 200` cevabını başarı saydığı, sistem DNS'inin `discord.com` için `::1, 0.0.0.0` döndürdüğü ve Discord web/uygulama erişiminin çalışmadığı doğrulandı.
 - v2.2.38 hedef TLS/HTTP kanıtını zorunlu kılar, non-public DNS cevaplarında güvenli public DNS fallback'i çalıştırır ve WireSock sanal adaptör profilini kararlı IPv4 WARP endpoint'ine normalize eder.
+- v2.2.39 bu bağlantı düzeltmelerini korur; yayımlanan self-contained paketin kullanıcı hesabı/repo yolu bağımsızlığını, Unicode/boşluk yolunu, dosya manifestini, x64 mimarisini ve gerçek başlangıcını iki temiz Windows runner neslinde doğrular.
 - v2.2.24 release asset'i yayınlandıktan sonra arka plan video paketinin yerel doğrulanan build ile aynı olmadığı görüldü; aynı sürüm numarasına tekrar güncelleme yapılamayacağı için düzeltme zorunlu olarak `v2.2.25` hotfix'ine taşındı.
 - v2.2.25, istenen yeni arka plan videosunu SHA-256 doğrulamalı repo-local `Assets/background.mp4` olarak paketledi.
 - v2.2.26, bu video düzeltmesini korur; normal akışta yerel `Assets/background.mp4` oynatılır, yerel asset yüklenemezse aynı doğrulanmış CloudFront kaynağı tanılamalı CDN fallback olarak denenir ve Windows azaltılmış hareket tercihinde video daha sakin hızla oynatılır. Aynı sürüm Roblox aktif preset/resource/smoke izlerini kaldırarak 15 hedefli güncel listeyi yayınlar.
@@ -56,7 +58,8 @@ Neden `v2.2.38`?
 
 | Release | Canlı durum | Asset durumu | Karar | Gerekçe |
 | --- | --- | --- | --- | --- |
-| `v2.2.38` | Yerel aday | Workflow bekleniyor | Tag sonrası workflow'u ve 4 public asset'i doğrula | Gerçek hedef TLS/HTTP kanıtı, non-public DNS fallback'i ve kararlı IPv4 WARP endpoint'i; Discord web/app canlı smoke PASS. |
+| `v2.2.39` | Yerel aday | Workflow bekleniyor | Tag sonrası iki CI runner'ını, release workflow'unu ve 4 public asset'i doğrula | Self-contained ZIP, Unicode/boşluk yolu, manifest, x64 PE ve gerçek başlangıç self-test kapıları. |
+| `v2.2.38` | Yayında | 4 asset; public digest ve SHA-256 doğrulandı | v2.2.39 ile üstlen | Gerçek hedef TLS/HTTP kanıtı, non-public DNS fallback'i ve kararlı IPv4 WARP endpoint'i; Discord web/app canlı smoke PASS. |
 | `v2.2.37` | Tag var | Önceki yayın | v2.2.38 ile üstlen | wgcf 2.2.32 ve cleanup/proof sertleştirmeleri korunur; CONNECT-only yanlış pozitif ve non-public DNS yanıtı v2.2.38'de giderilir. |
 | `v2.2.36` | Yayında | 4 asset; public digest, SHA-256, manifest ve imza durumu doğrulandı | Koru | v2.2.35 güvenlik sıkılaştırmalarını açıkça imzasız dağıtır; GitHub digest, SHA-256, manifest ve Gitleaks kapıları geçti. |
 | `v2.2.35` | Tag var, release yok | Workflow imza kapısında durdu | v2.2.36 ile üstlen | WebProxy SSRF, authority ve kaynak tüketimi sertleştirmesi; reduced-motion uyumu; companion trust zinciri; genişletilmiş test ve secret-scan kapıları korunur. |
