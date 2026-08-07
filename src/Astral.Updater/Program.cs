@@ -33,6 +33,7 @@ internal static class AstralUpdater
         }
 
         var log = new UpdateLog(options.LogPath);
+        var payloadApplied = false;
         try
         {
             progress.Report(
@@ -91,6 +92,7 @@ internal static class AstralUpdater
                 options.ExpectedSignerThumbprint,
                 log,
                 progress);
+            payloadApplied = true;
 
             var executablePath = Path.Combine(
                 options.TargetDirectory,
@@ -126,7 +128,7 @@ internal static class AstralUpdater
             log.Write("Update failed: " + exception.Message);
             progress.Fail(
                 "Güncelleme tamamlanamadı",
-                "Mevcut sürüm korundu. " + exception.Message);
+                FormatFailureDetail(exception, payloadApplied));
             progress.WaitForClose(FailureWindowTimeout);
             Console.Error.WriteLine(exception.Message);
             return 1;
@@ -252,12 +254,38 @@ internal static class AstralUpdater
                 newManifest);
             log.Write("Payload applied.");
         }
-        catch
+        catch (Exception applyException)
         {
             log.Write("Restoring previous files.");
-            RestoreBackup(backups, copiedWithoutBackup, log);
+            try
+            {
+                RestoreBackup(backups, copiedWithoutBackup, log);
+            }
+            catch (UpdateRollbackException rollbackException)
+            {
+                throw new UpdateRollbackException(
+                    rollbackException.Message,
+                    new AggregateException(applyException, rollbackException));
+            }
+
             throw;
         }
+    }
+
+    private static string FormatFailureDetail(
+        Exception exception,
+        bool payloadApplied = false)
+    {
+        if (exception is UpdateRollbackException)
+        {
+            return exception.Message;
+        }
+
+        return payloadApplied
+            ? "Güncelleme dosyaları uygulandı ancak Astral yeniden başlatılamadı. " +
+              "Astral.exe dosyasını elle açın; sorun sürerse Onar akışını çalıştırın. " +
+              exception.Message
+            : "Mevcut sürüm korundu. " + exception.Message;
     }
 
     private static void CopyManifest(
@@ -400,6 +428,7 @@ internal static class AstralUpdater
         IEnumerable<string> copiedWithoutBackup,
         UpdateLog log)
     {
+        var failures = new List<Exception>();
         foreach (var path in copiedWithoutBackup)
         {
             try
@@ -412,6 +441,7 @@ internal static class AstralUpdater
             catch (Exception exception)
             {
                 log.Write("Could not remove partial file: " + exception.Message);
+                failures.Add(exception);
             }
         }
 
@@ -425,8 +455,25 @@ internal static class AstralUpdater
             catch (Exception exception)
             {
                 log.Write("Could not restore backup: " + exception.Message);
+                failures.Add(exception);
             }
         }
+
+        if (failures.Count > 0)
+        {
+            throw new UpdateRollbackException(
+                "Güncelleme geri alınamadı; kurulum karışık durumda olabilir. "
+                + "Astral'ı çalıştırmadan önce uygulamayı yeniden kurun.",
+                new AggregateException(failures));
+        }
+    }
+}
+
+internal sealed class UpdateRollbackException : Exception
+{
+    public UpdateRollbackException(string message, Exception innerException)
+        : base(message, innerException)
+    {
     }
 }
 

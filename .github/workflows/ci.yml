@@ -64,10 +64,6 @@ jobs:
           -p:DebugType=None
           -p:DebugSymbols=false
 
-      - name: Arka plan videosunu pakete ekle
-        shell: pwsh
-        run: ./scripts/prepare-background-video.ps1 -PublishDirectory artifacts/publish/win-x64
-
       - name: Uygulama paketini yükle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:

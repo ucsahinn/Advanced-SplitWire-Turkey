@@ -25,14 +25,14 @@ public sealed class WgcfProvisioner : IProfileProvisioner
         @"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}",
         RegexOptions.Compiled);
 
-    public const string Version = "2.2.31";
+    public const string Version = "2.2.32";
     public const long WindowsX64MaxBytes = 32L * 1024 * 1024;
     public const string WindowsX64Sha256 =
-        "38cad8ab9cf44f8ec25c8a4e99179b1ee3510dd207e654c6aa1f6786e16d404c";
+        "2b3648a5d39550b6423be562e619805ed9f7a64bcda51cf36c60caeba97b1777";
 
     public static readonly Uri WindowsX64Download = new(
-        "https://github.com/ViRb3/wgcf/releases/download/v2.2.31/" +
-        "wgcf_2.2.31_windows_amd64.exe");
+        "https://github.com/ViRb3/wgcf/releases/download/v2.2.32/" +
+        "wgcf_2.2.32_windows_amd64.exe");
 
     private readonly AppPaths _paths;
     private readonly IVerifiedDownloader _downloader;
@@ -92,7 +92,26 @@ public sealed class WgcfProvisioner : IProfileProvisioner
                 TimeSpan.FromMinutes(2),
                 cancellationToken);
 
-            EnsureSucceeded("Cloudflare WARP kaydı", registerResult);
+            if (!registerResult.Succeeded)
+            {
+                if (File.Exists(_paths.WgcfAccount))
+                {
+                    progress?.Report(
+                        "Cloudflare WARP hesabı oluşturuldu; profil hazırlığına devam ediliyor");
+                }
+                else if (IsRateLimited(registerResult))
+                {
+                    throw new InvalidOperationException(
+                        "Cloudflare yeni WARP kayıtlarını geçici olarak sınırlandırdı (HTTP 429). Birkaç dakika bekleyip yeniden deneyin.",
+                        CreateFailureException(
+                            "Cloudflare WARP kaydı",
+                            registerResult));
+                }
+                else
+                {
+                    EnsureSucceeded("Cloudflare WARP kaydı", registerResult);
+                }
+            }
 
             if (!File.Exists(_paths.WgcfAccount))
             {
@@ -148,6 +167,13 @@ public sealed class WgcfProvisioner : IProfileProvisioner
             return;
         }
 
+        throw CreateFailureException(operation, result);
+    }
+
+    private static InvalidOperationException CreateFailureException(
+        string operation,
+        CommandResult result)
+    {
         var diagnostic = string.IsNullOrWhiteSpace(result.StandardError)
             ? result.StandardOutput
             : result.StandardError;
@@ -156,9 +182,21 @@ public sealed class WgcfProvisioner : IProfileProvisioner
             diagnostic = $"wgcf exit code {result.ExitCode}.";
         }
 
-        throw new InvalidOperationException(
+        return new InvalidOperationException(
             $"{operation} çıkış kodu {result.ExitCode} ile başarısız oldu: " +
             SanitizeFailureDiagnostic(diagnostic));
+    }
+
+    private static bool IsRateLimited(CommandResult result)
+    {
+        return ContainsRateLimitMarker(result.StandardOutput)
+            || ContainsRateLimitMarker(result.StandardError);
+    }
+
+    private static bool ContainsRateLimitMarker(string value)
+    {
+        return value.Contains("Too Many Requests", StringComparison.OrdinalIgnoreCase)
+            || Regex.IsMatch(value, @"(?<!\d)429(?!\d)", RegexOptions.CultureInvariant);
     }
 
     private static string SanitizeFailureDiagnostic(string diagnostic)

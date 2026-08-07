@@ -35,6 +35,12 @@ var tests = new (string Name, Func<Task> Run)[]
     ("Hedef app kaniti hedef process baglantisini IPv4 ile dogrular", TargetApplicationProofProviderVerifiesOwnedIpv4ConnectionAsync),
     ("Hedef app kaniti hedef process baglantisini IPv6 ile dogrular", TargetApplicationProofProviderVerifiesOwnedIpv6ConnectionAsync),
     ("Hedef app kaniti process var ama hedef TCP yoksa reddeder", TargetApplicationProofProviderRequiresOwnedTargetConnectionAsync),
+    ("Hedef app kaniti bare executable adini guven koku saymaz", TargetApplicationProofProviderRejectsBareAllowedExecutableAsync),
+    ("Hedef app kaniti ayni adli sahte executable yolunu reddeder", TargetApplicationProofProviderRejectsSpoofedExecutablePathAsync),
+    ("Hedef app kaniti okunamayan executable yolunu reddeder", TargetApplicationProofProviderRejectsUnreadableExecutablePathAsync),
+    ("Hedef app kaniti hedef IP uzerindeki 8443 portunu reddeder", TargetApplicationProofProviderRejectsUnverifiedRemotePortAsync),
+    ("Hedef resolver ve app kaniti IMVU profilinde rooted yol sozlesmesini paylasir", TargetResolverAndProofProviderShareRootedPathsAsync),
+    ("Smoke kilit katalogu TargetRegistry ile tum hedeflerde exact eslesir", SmokeLockCatalogMatchesTargetRegistryAsync),
     ("Hedef app kaniti probe host DNS cozumlerini paralel yapar", TargetApplicationProofProviderResolvesProbeHostsInParallelAsync),
     ("Hedef çözümleyici eski özel hedef girdilerini kapsama almaz", TargetScopeResolverIgnoresLegacyCustomTargetsAsync),
     ("Web proxy politikası yalnızca seçili domainleri kabul eder", WebProxyPolicyAllowsOnlySelectedDomainsAsync),
@@ -63,6 +69,9 @@ var tests = new (string Name, Func<Task> Run)[]
     ("wgcf yenileme hatasında mevcut profili kullanır", WgcfProvisionerUsesCachedProfileWhenRefreshFailsAsync),
     ("wgcf boş hata çıktısını tanısız bırakmaz", WgcfProvisionerEmptyFailureIsDiagnosticAsync),
     ("wgcf hata çıktısındaki hassas değerleri redakte eder", WgcfProvisionerRedactsSensitiveFailureOutputAsync),
+    ("wgcf HTTP 429 kaydını otomatik tekrar etmez", WgcfProvisionerDoesNotRetryRateLimitAsync),
+    ("wgcf HTTP 429 iç tanısını hassas değerlerden arındırır", WgcfProvisionerRedactsRateLimitInnerDiagnosticAsync),
+    ("wgcf 429 sırasında hesap oluştuysa yeniden kayıt yapmaz", WgcfProvisionerUsesAccountCreatedByFailedRegisterAsync),
     ("SHA-256 doğrulayıcı yalnızca sabit özeti kabul eder", HashVerifierIsStrictAsync),
     ("Doğrulanmış indirici geçici zaman aşımını tekrar dener", VerifiedDownloaderRetriesTransientTimeoutAsync),
     ("Doğrulanmış indirici geçici DNS hatasını tekrar dener", VerifiedDownloaderRetriesTransientDnsFailureAsync),
@@ -77,6 +86,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ("Otomatik güncelleme geçici release gövde hatasını tekrar dener", AppUpdateCheckRetriesTransientMetadataBodyFailureAsync),
     ("Otomatik güncelleme geçici checksum hatasını tekrar dener", AppUpdateCheckRetriesTransientChecksumFailureAsync),
     ("Otomatik güncelleme yeni GitHub paketini hazırlar", AppUpdatePreparesVerifiedReleaseAsync),
+    ("Otomatik güncelleme başarısız hazırlamayı retention için işaretler", AppUpdateFailedPreparationBecomesRetainableAsync),
     ("Otomatik güncelleme indirme ilerlemesini log dostu sınırlar", AppUpdateThrottlesDownloadProgressAsync),
     ("Otomatik güncelleme indirme tekrar denemesini görünür tutar", AppUpdatePreservesDownloadRetryProgressAsync),
     ("Otomatik güncelleme GitHub digest uyuşmazlığını reddeder", AppUpdateRejectsDigestMismatchAsync),
@@ -86,6 +96,10 @@ var tests = new (string Name, Func<Task> Run)[]
     ("Otomatik güncelleme manifest dışı zip dosyasını reddeder", AppUpdateRejectsArchiveEntryOutsideManifestAsync),
     ("Otomatik güncelleme extract öncesi paket özetini yeniden doğrular", AppUpdateExtractRejectsPackageHashMismatchAsync),
     ("Otomatik güncelleme staging sürüm klasör adını doğrular", AppUpdateStagingRejectsUnsafeVersionDirectoryAsync),
+    ("Otomatik güncelleme yalnız eski işaretli staging denemelerini temizler", AppUpdateRetentionRemovesOnlyVerifiedOldAttemptsAsync),
+    ("Otomatik güncelleme tamamlanmış staging sayısını sınırlar", AppUpdateRetentionBoundsCompletedAttemptCountAsync),
+    ("Otomatik güncelleme reparse staging kökünü temizlemez", AppUpdateRetentionRejectsReparseRootAsync),
+    ("Otomatik güncelleme reparse staging atasını temizlemez", AppUpdateRetentionRejectsReparseAncestorAsync),
     ("Otomatik güncelleme varsayılan olarak GitHub doğrulamalı paketi hazırlar", AppUpdateDefaultsToGitHubVerifiedPackageAsync),
     ("Otomatik güncelleme imza modu açılırsa tüm PE dosyalarını doğrulamaya alır", AppUpdateRequiresSignaturesForAllPortableBinariesAsync),
     ("Ayarlar WireSock onayını sürüm bazında saklar", SettingsPersistConsentAsync),
@@ -104,7 +118,9 @@ var tests = new (string Name, Func<Task> Run)[]
     ("Denetleyici temiz kapanışta firewall scriptini tekrar çalıştırmaz", ControllerDisposeSkipsDisconnectedCleanupAsync),
     ("Denetleyici kilit doğrulanmadan kapanışta kilidi yeniler", ControllerDisposeRefreshesUnconfirmedDisconnectedLockAsync),
     ("Denetleyici aktif bağlantıyı kapanışta güvenle temizler", ControllerDisposeCleansActiveConnectionAsync),
-    ("Denetleyici kapanışta erişim kilidi zaman aşımını fatal yapmaz", ControllerDisposeTreatsAccessLockTimeoutAsBestEffortAsync),
+    ("Denetleyici kapanışta erişim kilidi zaman aşımını fail-closed raporlar", ControllerDisposeFailsClosedWhenAccessLockTimesOutAsync),
+    ("Denetleyici kapanışta web proxy temizliği başarısızsa fail-closed raporlar", ControllerDisposeFailsClosedWhenWebProxyCleanupFailsAsync),
+    ("Denetleyici kapanışta tünel kapsamı temizliği başarısızsa fail-closed raporlar", ControllerDisposeFailsClosedWhenTunnelCleanupFailsAsync),
     ("Denetleyici WireSock kapanışı doğrulanmazsa süreç işaretini korur", ControllerKeepsWireSockMarkerWhenExitIsUnconfirmedAsync),
     ("Denetleyici yanlış WireSock süreç işaretini temizler", ControllerDeletesMismatchedWireSockMarkerAsync),
     ("Denetleyici bağlantı kapanınca hedef uygulamaları kapatmaz", ControllerDoesNotCloseTargetProcessesOnDisconnectAsync),
@@ -128,6 +144,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ("Denetleyici recheck sırasında stale web kanıtıyla bağlıya yükselmez", ControllerRecheckRequiresFreshWebProofBeforeConnectedAsync),
     ("Denetleyici recheck sırasında eski WireSock markerını app kanıtı saymaz", ControllerDoesNotPromoteTargetActionUsingStaleWireSockMarkerAsync),
     ("Denetleyici Discord dışı app hedeflerini recheck ile kanıtsız bağlı yapmaz", ControllerKeepsNonDiscordAppTargetsActionRequiredAfterRecheckAsync),
+    ("Denetleyici sonradan bulunan app yolu için güvenli yeniden bağlantı ister", ControllerRequiresReconnectWhenTargetPathAppearsAfterLaunchAsync),
     ("Denetleyici hedef aksiyonu recheck iptalinde doğrulamada takılı kalmaz", ControllerKeepsTargetActionRequiredWhenRecheckIsCanceledAsync),
     ("Denetleyici hedef aksiyonu recheck hatasında aktif tüneli retryable tutar", ControllerKeepsTargetActionRequiredWhenRecheckFailsWithActiveTunnelAsync),
     ("Denetleyici çalışan Discord'u app kanıtından önce yeniler", ControllerRefreshesRunningDiscordBeforeAppTunnelProofAsync),
@@ -438,11 +455,29 @@ static Task TargetRegistryDefinesBuiltInPresetsAsync()
     Assert(wattpad.ExecutableHints.Count == 0);
     Assert(wattpad.Domains.Any(domain => domain.Value == "api.wattpad.com"));
 
+    Assert(registry.TryGet(TargetIds.Azar, out var azar));
+    Assert(azar.ScopeKind == TargetScopeKind.Web);
+    Assert(azar.ExecutableHints.Count == 0);
+
+    Assert(registry.TryGet(TargetIds.Tango, out var tango));
+    Assert(tango.ScopeKind == TargetScopeKind.Web);
+    Assert(tango.ExecutableHints.Count == 0);
+
+    Assert(registry.TryGet(TargetIds.LiVU, out var livu));
+    Assert(livu.ScopeKind == TargetScopeKind.Web);
+    Assert(livu.ExecutableHints.Count == 0);
+    Assert(livu.Domains.Any(domain => domain.Value == "livuapp.com"));
+    Assert(livu.Domains.Any(domain => domain.Value == "www.livuapp.com"));
+    Assert(livu.Metadata["launchUrl"] == "https://livuapp.com");
+
     Assert(registry.TryGet(TargetIds.Blogspot, out var blogspot));
     Assert(blogspot.Domains.Any(domain => domain.Value == "blogspot.com"));
     Assert(blogspot.Domains.Any(domain => domain.Value == "blogger.com"));
 
     Assert(registry.TryGet(TargetIds.IMVU, out var imvu));
+    Assert(imvu.ScopeKind == TargetScopeKind.ApplicationAndWeb);
+    Assert(imvu.ExecutableHints.Any(hint =>
+        hint.FileName.Equals("IMVUClient.exe", StringComparison.OrdinalIgnoreCase)));
     Assert(imvu.Domains.Any(domain => domain.Value == "secure.imvu.com"));
 
     Assert(registry.TryGet(TargetIds.BigoLive, out var bigoLive));
@@ -632,11 +667,30 @@ static Task TargetScopeResolverCoversEveryPresetWithoutBrowsersAsync()
         File.WriteAllText(Path.Combine(discordAppDirectory, "Discord.exe"), "discord");
 
         var registry = TargetRegistry.CreateDefault();
+        var targets = registry.GetBuiltInTargets();
+        var resolvedTargetPaths = new Dictionary<string, IReadOnlyList<string>>(
+            StringComparer.OrdinalIgnoreCase);
+        foreach (var target in targets.Where(target =>
+                     target.HasApplicationScope
+                     && !target.Id.Equals(TargetIds.Discord, StringComparison.OrdinalIgnoreCase)))
+        {
+            var paths = target.ExecutableHints
+                .Select(hint => Path.Combine(root, "TrustedApps", target.Id, hint.FileName))
+                .ToArray();
+            foreach (var path in paths)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllText(path, "trusted-app");
+            }
+
+            resolvedTargetPaths[target.Id] = paths;
+        }
+
         var resolver = new TargetScopeResolver(
             registry,
             new DiscordAppScope(root, root, root),
-            webProxyPath);
-        var targets = registry.GetBuiltInTargets();
+            webProxyPath,
+            new FakeTargetExecutablePathResolver(resolvedTargetPaths));
 
         foreach (var target in targets)
         {
@@ -661,10 +715,10 @@ static Task TargetScopeResolverCoversEveryPresetWithoutBrowsersAsync()
             if (target.HasApplicationScope
                 && !target.Id.Equals(TargetIds.Discord, StringComparison.OrdinalIgnoreCase))
             {
-                foreach (var hint in target.ExecutableHints)
+                foreach (var executablePath in resolvedTargetPaths[target.Id])
                 {
                     Assert(plan.AllowedApplications.Contains(
-                        hint.FileName,
+                        executablePath,
                         StringComparer.OrdinalIgnoreCase));
                 }
             }
@@ -693,14 +747,16 @@ static Task TargetScopeResolverCoversEveryPresetWithoutBrowsersAsync()
         Assert(allPlan.SelectedTargets.Count == targets.Count);
         Assert(allPlan.AllowedApplications.Contains(webProxyPath, StringComparer.OrdinalIgnoreCase));
         Assert(allPlan.AllowedApplications.All(app => !RoutingPlan.IsBrowserExecutable(app)));
-        foreach (var hint in targets
+        foreach (var executablePath in targets
                      .Where(target => !target.Id.Equals(
                          TargetIds.Discord,
                          StringComparison.OrdinalIgnoreCase))
-                     .SelectMany(target => target.ExecutableHints))
+                     .SelectMany(target => resolvedTargetPaths.GetValueOrDefault(
+                         target.Id,
+                         [])))
         {
             Assert(allPlan.AllowedApplications.Contains(
-                hint.FileName,
+                executablePath,
                 StringComparer.OrdinalIgnoreCase));
         }
     }
@@ -774,23 +830,33 @@ static async Task TargetApplicationProofProviderVerifiesOwnedIpv4ConnectionAsync
     try
     {
         var targetAddress = IPAddress.Parse("203.0.113.10");
+        var trustedExecutable = Path.Combine(root, "IMVUClient.exe");
         var provider = new WindowsTargetApplicationProofProvider(
             new FakeTargetApplicationProcessProvider(
-                [new TargetApplicationProcessInfo(4242, "Azar")]),
+                [new TargetApplicationProcessInfo(4242, "IMVUClient")
+                {
+                    ExecutablePath = trustedExecutable
+                }]),
             new FakeOwnedTcpConnectionProvider(
-                [new OwnedTcpConnectionInfo(4242, targetAddress, TcpState.Established)]),
+                [new OwnedTcpConnectionInfo(4242, targetAddress, TcpState.Established)
+                {
+                    RemotePort = 443
+                }]),
             new FakeTargetHostAddressResolver(
                 new Dictionary<string, IReadOnlyList<IPAddress>>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["azarlive.com"] = [targetAddress]
+                    ["imvu.com"] = [targetAddress]
                 }));
-        var plan = CreateTargetRoutingPlan(root, TargetIds.Azar);
+        var plan = CreateTargetRoutingPlan(root, TargetIds.IMVU) with
+        {
+            AllowedApplications = [trustedExecutable]
+        };
 
         var proof = await provider.VerifyAsync(plan, CancellationToken.None);
 
         Assert(proof.Required);
         Assert(proof.IsVerified);
-        Assert(proof.VerifiedTargetIds.SequenceEqual([TargetIds.Azar]));
+        Assert(proof.VerifiedTargetIds.SequenceEqual([TargetIds.IMVU]));
         Assert(proof.MissingTargetIds.Count == 0);
     }
     finally
@@ -806,23 +872,33 @@ static async Task TargetApplicationProofProviderVerifiesOwnedIpv6ConnectionAsync
     try
     {
         var targetAddress = IPAddress.Parse("2001:db8::42");
+        var trustedExecutable = Path.Combine(root, "IMVUClient.exe");
         var provider = new WindowsTargetApplicationProofProvider(
             new FakeTargetApplicationProcessProvider(
-                [new TargetApplicationProcessInfo(4242, "Azar")]),
+                [new TargetApplicationProcessInfo(4242, "IMVUClient")
+                {
+                    ExecutablePath = trustedExecutable
+                }]),
             new FakeOwnedTcpConnectionProvider(
-                [new OwnedTcpConnectionInfo(4242, targetAddress, TcpState.Established)]),
+                [new OwnedTcpConnectionInfo(4242, targetAddress, TcpState.Established)
+                {
+                    RemotePort = 443
+                }]),
             new FakeTargetHostAddressResolver(
                 new Dictionary<string, IReadOnlyList<IPAddress>>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["azarlive.com"] = [targetAddress]
+                    ["imvu.com"] = [targetAddress]
                 }));
-        var plan = CreateTargetRoutingPlan(root, TargetIds.Azar);
+        var plan = CreateTargetRoutingPlan(root, TargetIds.IMVU) with
+        {
+            AllowedApplications = [trustedExecutable]
+        };
 
         var proof = await provider.VerifyAsync(plan, CancellationToken.None);
 
         Assert(proof.Required);
         Assert(proof.IsVerified);
-        Assert(proof.VerifiedTargetIds.SequenceEqual([TargetIds.Azar]));
+        Assert(proof.VerifiedTargetIds.SequenceEqual([TargetIds.IMVU]));
         Assert(proof.MissingTargetIds.Count == 0);
     }
     finally
@@ -839,25 +915,328 @@ static async Task TargetApplicationProofProviderRequiresOwnedTargetConnectionAsy
     {
         var targetAddress = IPAddress.Parse("203.0.113.10");
         var unrelatedAddress = IPAddress.Parse("203.0.113.11");
+        var trustedExecutable = Path.Combine(root, "IMVUClient.exe");
         var provider = new WindowsTargetApplicationProofProvider(
             new FakeTargetApplicationProcessProvider(
-                [new TargetApplicationProcessInfo(4242, "Azar")]),
+                [new TargetApplicationProcessInfo(4242, "IMVUClient")
+                {
+                    ExecutablePath = trustedExecutable
+                }]),
             new FakeOwnedTcpConnectionProvider(
-                [new OwnedTcpConnectionInfo(4242, unrelatedAddress, TcpState.Established)]),
+                [new OwnedTcpConnectionInfo(4242, unrelatedAddress, TcpState.Established)
+                {
+                    RemotePort = 443
+                }]),
             new FakeTargetHostAddressResolver(
                 new Dictionary<string, IReadOnlyList<IPAddress>>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["azarlive.com"] = [targetAddress]
+                    ["imvu.com"] = [targetAddress]
                 }));
-        var plan = CreateTargetRoutingPlan(root, TargetIds.Azar);
+        var plan = CreateTargetRoutingPlan(root, TargetIds.IMVU) with
+        {
+            AllowedApplications = [trustedExecutable]
+        };
 
         var proof = await provider.VerifyAsync(plan, CancellationToken.None);
 
         Assert(proof.Required);
         Assert(!proof.IsVerified);
         Assert(proof.VerifiedTargetIds.Count == 0);
-        Assert(proof.MissingTargetIds.SequenceEqual([TargetIds.Azar]));
+        Assert(proof.MissingTargetIds.SequenceEqual([TargetIds.IMVU]));
         Assert(proof.FailureKind == "TargetApplicationProofMissingOwnedConnection");
+    }
+    finally
+    {
+        Directory.Delete(root, recursive: true);
+    }
+}
+
+static async Task TargetResolverAndProofProviderShareRootedPathsAsync()
+{
+    var root = CreateTemporaryDirectory();
+    try
+    {
+        var registry = TargetRegistry.CreateDefault();
+        var webProxyPath = Path.Combine(root, "Astral.WebProxy.exe");
+        File.WriteAllText(webProxyPath, "proxy");
+        foreach (var targetId in new[] { TargetIds.IMVU })
+        {
+            Assert(registry.TryGet(targetId, out var target));
+            var executablePath = Path.Combine(
+                root,
+                "TrustedApps",
+                targetId,
+                target.ExecutableHints[0].FileName);
+            Directory.CreateDirectory(Path.GetDirectoryName(executablePath)!);
+            File.WriteAllText(executablePath, "trusted-app");
+            var pathResolver = new FakeTargetExecutablePathResolver(
+                new Dictionary<string, IReadOnlyList<string>>(
+                    StringComparer.OrdinalIgnoreCase)
+                {
+                    [targetId] = [executablePath]
+                });
+            var resolver = new TargetScopeResolver(
+                registry,
+                new DiscordAppScope(root, root, root),
+                webProxyPath,
+                pathResolver);
+            var plan = resolver.Resolve(new TargetSelection([targetId]));
+            Assert(plan.AllowedApplications.Contains(
+                executablePath,
+                StringComparer.OrdinalIgnoreCase));
+            Assert(plan.AllowedApplications.All(Path.IsPathFullyQualified));
+
+            var targetAddress = IPAddress.Parse("203.0.113.20");
+            var probeHost = target.Metadata["probeHosts"]
+                .Split(';', StringSplitOptions.RemoveEmptyEntries)[0];
+            var provider = new WindowsTargetApplicationProofProvider(
+                new FakeTargetApplicationProcessProvider(
+                    [new TargetApplicationProcessInfo(4242, Path.GetFileNameWithoutExtension(executablePath))
+                    {
+                        ExecutablePath = executablePath
+                    }]),
+                new FakeOwnedTcpConnectionProvider(
+                    [new OwnedTcpConnectionInfo(4242, targetAddress, TcpState.Established)
+                    {
+                        RemotePort = 443
+                    }]),
+                new FakeTargetHostAddressResolver(
+                    new Dictionary<string, IReadOnlyList<IPAddress>>(
+                        StringComparer.OrdinalIgnoreCase)
+                    {
+                        [probeHost] = [targetAddress]
+                    }));
+
+            var proof = await provider.VerifyAsync(plan, CancellationToken.None);
+            Assert(proof.IsVerified);
+            Assert(proof.VerifiedTargetIds.SequenceEqual([targetId]));
+        }
+    }
+    finally
+    {
+        Directory.Delete(root, recursive: true);
+    }
+}
+
+static async Task SmokeLockCatalogMatchesTargetRegistryAsync()
+{
+    if (!OperatingSystem.IsWindows())
+    {
+        return;
+    }
+
+    var root = FindRepositoryRoot();
+    var helperPath = Path.Combine(root, "scripts", "smoke-live-connect.helpers.ps1");
+    var targetIds = TargetRegistry.CreateDefault()
+        .GetBuiltInTargets()
+        .Select(target => target.Id)
+        .ToArray();
+    var quotedHelper = helperPath.Replace("'", "''", StringComparison.Ordinal);
+    var quotedIds = string.Join(
+        ",",
+        targetIds.Select(id => "'" + id.Replace("'", "''", StringComparison.Ordinal) + "'"));
+    var script =
+        ". '" + quotedHelper + "'; " +
+        "$result=[ordered]@{}; " +
+        "foreach($id in @(" + quotedIds + ")){" +
+        "$result[$id]=@(Get-AstralSmokeExpectedLockDomains -SelectedTargetIds @($id))}; " +
+        "$result | ConvertTo-Json -Compress";
+    using var process = Process.Start(new ProcessStartInfo
+    {
+        FileName = "powershell.exe",
+        UseShellExecute = false,
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        CreateNoWindow = true,
+        ArgumentList =
+        {
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            script
+        }
+    }) ?? throw new InvalidOperationException("PowerShell smoke catalog process baslatilamadi.");
+    var outputTask = process.StandardOutput.ReadToEndAsync();
+    var errorTask = process.StandardError.ReadToEndAsync();
+    await process.WaitForExitAsync();
+    var output = await outputTask;
+    var error = await errorTask;
+    if (process.ExitCode != 0)
+    {
+        throw new InvalidOperationException(error);
+    }
+
+    using var document = JsonDocument.Parse(output);
+    var registry = TargetRegistry.CreateDefault();
+    foreach (var targetId in targetIds)
+    {
+        Assert(registry.TryGet(targetId, out var target));
+        var expected = target.Domains
+            .Where(domain => !domain.IsWildcard)
+            .Select(domain => domain.Value)
+            .OrderBy(domain => domain, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var actual = document.RootElement.GetProperty(targetId)
+            .EnumerateArray()
+            .Select(item => item.GetString() ?? string.Empty)
+            .OrderBy(domain => domain, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        Assert(actual.SequenceEqual(expected, StringComparer.OrdinalIgnoreCase));
+    }
+}
+
+static async Task TargetApplicationProofProviderRejectsSpoofedExecutablePathAsync()
+{
+    var root = CreateTemporaryDirectory();
+
+    try
+    {
+        var targetAddress = IPAddress.Parse("203.0.113.10");
+        var trustedExecutable = Path.Combine(root, "IMVUClient.exe");
+        var provider = new WindowsTargetApplicationProofProvider(
+            new FakeTargetApplicationProcessProvider(
+                [new TargetApplicationProcessInfo(4242, "IMVUClient")
+                {
+                    ExecutablePath = @"C:\Temp\Spoofed-IMVUClient.exe"
+                }]),
+            new FakeOwnedTcpConnectionProvider(
+                [new OwnedTcpConnectionInfo(4242, targetAddress, TcpState.Established)
+                {
+                    RemotePort = 443
+                }]),
+            new FakeTargetHostAddressResolver(
+                new Dictionary<string, IReadOnlyList<IPAddress>>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["imvu.com"] = [targetAddress]
+                }));
+        var plan = CreateTargetRoutingPlan(root, TargetIds.IMVU) with
+        {
+            AllowedApplications = [trustedExecutable]
+        };
+
+        var proof = await provider.VerifyAsync(plan, CancellationToken.None);
+
+        Assert(!proof.IsVerified);
+        Assert(proof.MissingTargetIds.SequenceEqual([TargetIds.IMVU]));
+    }
+    finally
+    {
+        Directory.Delete(root, recursive: true);
+    }
+}
+
+static async Task TargetApplicationProofProviderRejectsBareAllowedExecutableAsync()
+{
+    var root = CreateTemporaryDirectory();
+
+    try
+    {
+        var targetAddress = IPAddress.Parse("203.0.113.10");
+        var trustedExecutable = Path.Combine(root, "IMVUClient.exe");
+        var provider = new WindowsTargetApplicationProofProvider(
+            new FakeTargetApplicationProcessProvider(
+                [new TargetApplicationProcessInfo(4242, "IMVUClient")
+                {
+                    ExecutablePath = trustedExecutable
+                }]),
+            new FakeOwnedTcpConnectionProvider(
+                [new OwnedTcpConnectionInfo(4242, targetAddress, TcpState.Established)
+                {
+                    RemotePort = 443
+                }]),
+            new FakeTargetHostAddressResolver(
+                new Dictionary<string, IReadOnlyList<IPAddress>>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["imvu.com"] = [targetAddress]
+                }));
+        var plan = CreateTargetRoutingPlan(root, TargetIds.IMVU);
+
+        var proof = await provider.VerifyAsync(plan, CancellationToken.None);
+
+        Assert(!proof.IsVerified);
+        Assert(proof.MissingTargetIds.SequenceEqual([TargetIds.IMVU]));
+        Assert(proof.Diagnostic?.Contains(
+            "no-rooted-allowed-executable",
+            StringComparison.Ordinal) == true);
+    }
+    finally
+    {
+        Directory.Delete(root, recursive: true);
+    }
+}
+
+static async Task TargetApplicationProofProviderRejectsUnreadableExecutablePathAsync()
+{
+    var root = CreateTemporaryDirectory();
+
+    try
+    {
+        var targetAddress = IPAddress.Parse("203.0.113.10");
+        var trustedExecutable = Path.Combine(root, "IMVUClient.exe");
+        var provider = new WindowsTargetApplicationProofProvider(
+            new FakeTargetApplicationProcessProvider(
+                [new TargetApplicationProcessInfo(4242, "IMVUClient")]),
+            new FakeOwnedTcpConnectionProvider(
+                [new OwnedTcpConnectionInfo(4242, targetAddress, TcpState.Established)
+                {
+                    RemotePort = 443
+                }]),
+            new FakeTargetHostAddressResolver(
+                new Dictionary<string, IReadOnlyList<IPAddress>>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["imvu.com"] = [targetAddress]
+                }));
+        var plan = CreateTargetRoutingPlan(root, TargetIds.IMVU) with
+        {
+            AllowedApplications = [trustedExecutable]
+        };
+
+        var proof = await provider.VerifyAsync(plan, CancellationToken.None);
+
+        Assert(!proof.IsVerified);
+        Assert(proof.MissingTargetIds.SequenceEqual([TargetIds.IMVU]));
+    }
+    finally
+    {
+        Directory.Delete(root, recursive: true);
+    }
+}
+
+static async Task TargetApplicationProofProviderRejectsUnverifiedRemotePortAsync()
+{
+    var root = CreateTemporaryDirectory();
+
+    try
+    {
+        var targetAddress = IPAddress.Parse("203.0.113.10");
+        var trustedExecutable = Path.Combine(root, "IMVUClient.exe");
+        var provider = new WindowsTargetApplicationProofProvider(
+            new FakeTargetApplicationProcessProvider(
+                [new TargetApplicationProcessInfo(4242, "IMVUClient")
+                {
+                    ExecutablePath = trustedExecutable
+                }]),
+            new FakeOwnedTcpConnectionProvider(
+                [new OwnedTcpConnectionInfo(4242, targetAddress, TcpState.Established)
+                {
+                    RemotePort = 8443
+                }]),
+            new FakeTargetHostAddressResolver(
+                new Dictionary<string, IReadOnlyList<IPAddress>>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["imvu.com"] = [targetAddress]
+                }));
+        var plan = CreateTargetRoutingPlan(root, TargetIds.IMVU) with
+        {
+            AllowedApplications = [trustedExecutable]
+        };
+
+        var proof = await provider.VerifyAsync(plan, CancellationToken.None);
+
+        Assert(!proof.IsVerified);
+        Assert(proof.MissingTargetIds.SequenceEqual([TargetIds.IMVU]));
     }
     finally
     {
@@ -872,6 +1251,7 @@ static async Task TargetApplicationProofProviderResolvesProbeHostsInParallelAsyn
     try
     {
         var targetAddress = IPAddress.Parse("203.0.113.42");
+        var trustedExecutable = Path.Combine(root, "Discord.exe");
         var resolver = new DelayedTargetHostAddressResolver(
             TimeSpan.FromMilliseconds(180),
             new Dictionary<string, IReadOnlyList<IPAddress>>(StringComparer.OrdinalIgnoreCase)
@@ -880,11 +1260,20 @@ static async Task TargetApplicationProofProviderResolvesProbeHostsInParallelAsyn
             });
         var provider = new WindowsTargetApplicationProofProvider(
             new FakeTargetApplicationProcessProvider(
-                [new TargetApplicationProcessInfo(4242, "Discord")]),
+                [new TargetApplicationProcessInfo(4242, "Discord")
+                {
+                    ExecutablePath = trustedExecutable
+                }]),
             new FakeOwnedTcpConnectionProvider(
-                [new OwnedTcpConnectionInfo(4242, targetAddress, TcpState.Established)]),
+                [new OwnedTcpConnectionInfo(4242, targetAddress, TcpState.Established)
+                {
+                    RemotePort = 443
+                }]),
             resolver);
-        var plan = CreateTargetRoutingPlan(root, TargetIds.Discord);
+        var plan = CreateTargetRoutingPlan(root, TargetIds.Discord) with
+        {
+            AllowedApplications = [trustedExecutable]
+        };
 
         var stopwatch = Stopwatch.StartNew();
         var proof = await provider.VerifyAsync(plan, CancellationToken.None);
@@ -1624,6 +2013,13 @@ static async Task WgcfProvisionerBuildsDiscordAccessProfileAsync()
             "Hedef bağlantı profili hazır",
             StringComparison.OrdinalIgnoreCase)));
         Assert(downloader.LastMaxBytes == WgcfProvisioner.WindowsX64MaxBytes);
+        Assert(downloader.LastSource == new Uri(
+            "https://github.com/ViRb3/wgcf/releases/download/v2.2.32/" +
+            "wgcf_2.2.32_windows_amd64.exe"));
+        Assert(string.Equals(
+            downloader.LastExpectedSha256,
+            "2b3648a5d39550b6423be562e619805ed9f7a64bcda51cf36c60caeba97b1777",
+            StringComparison.Ordinal));
 
         await provisioner.EnsureProfileAsync(
             ["Discord.exe"],
@@ -1750,6 +2146,96 @@ static async Task WgcfProvisionerRedactsSensitiveFailureOutputAsync()
         Assert(!exception.Message.Contains("fake:token", StringComparison.Ordinal));
         Assert(!exception.Message.Contains("session-cookie-value", StringComparison.Ordinal));
         Assert(exception.Message.Length < 520);
+    }
+    finally
+    {
+        Directory.Delete(root, recursive: true);
+    }
+}
+
+static async Task WgcfProvisionerDoesNotRetryRateLimitAsync()
+{
+    var root = CreateTemporaryDirectory();
+    var paths = new AppPaths(root);
+    var runner = new RateLimitedWgcfCommandRunner(paths, failuresBeforeSuccess: 1);
+    var provisioner = new WgcfProvisioner(
+        paths,
+        new FakeVerifiedDownloader(),
+        runner);
+
+    try
+    {
+        var exception = await AssertThrowsAsync<InvalidOperationException>(
+            () => provisioner.EnsureProfileAsync(
+                ["Discord.exe"],
+                null,
+                CancellationToken.None));
+        Assert(runner.Commands.SequenceEqual(
+            ["register --accept-tos"],
+            StringComparer.Ordinal));
+        Assert(exception.Message.Contains("HTTP 429", StringComparison.Ordinal));
+        Assert(exception.Message.Contains("birkaç dakika", StringComparison.OrdinalIgnoreCase));
+    }
+    finally
+    {
+        Directory.Delete(root, recursive: true);
+    }
+}
+
+static async Task WgcfProvisionerUsesAccountCreatedByFailedRegisterAsync()
+{
+    var root = CreateTemporaryDirectory();
+    var paths = new AppPaths(root);
+    var runner = new RateLimitedWgcfCommandRunner(
+        paths,
+        failuresBeforeSuccess: 1,
+        createAccountOnFirstFailure: true);
+    var provisioner = new WgcfProvisioner(
+        paths,
+        new FakeVerifiedDownloader(),
+        runner);
+
+    try
+    {
+        await provisioner.EnsureProfileAsync(
+            ["Discord.exe"],
+            null,
+            CancellationToken.None);
+        Assert(runner.Commands.SequenceEqual(
+            ["register --accept-tos", "generate"],
+            StringComparer.Ordinal));
+    }
+    finally
+    {
+        Directory.Delete(root, recursive: true);
+    }
+}
+
+static async Task WgcfProvisionerRedactsRateLimitInnerDiagnosticAsync()
+{
+    var root = CreateTemporaryDirectory();
+    var paths = new AppPaths(root);
+    var runner = new RateLimitedWgcfCommandRunner(
+        paths,
+        failuresBeforeSuccess: 2,
+        failureDiagnostic:
+            "HTTP 429 Too Many Requests\nPrivateKey = secret-rate-limit-key\nAuthorization: Bearer secret-rate-limit-token");
+    var provisioner = new WgcfProvisioner(
+        paths,
+        new FakeVerifiedDownloader(),
+        runner);
+
+    try
+    {
+        var exception = await AssertThrowsAsync<InvalidOperationException>(
+            () => provisioner.EnsureProfileAsync(
+                ["Discord.exe"],
+                null,
+                CancellationToken.None));
+        var diagnostic = exception.ToString();
+        Assert(!exception.Message.Contains("secret-rate-limit", StringComparison.Ordinal));
+        Assert(!diagnostic.Contains("secret-rate-limit", StringComparison.Ordinal));
+        Assert(diagnostic.Contains("[REDACTED]", StringComparison.Ordinal));
     }
     finally
     {
@@ -2325,6 +2811,63 @@ static async Task AppUpdatePreparesVerifiedReleaseAsync()
             "indiriliyor",
             StringComparison.OrdinalIgnoreCase)));
         Assert(progressEvents.Any(item => item.Percent >= 90));
+        var attemptDirectory = Path.GetDirectoryName(update.PackagePath!)!;
+        AppUpdateStagingRetention.Cleanup(
+            new AppPaths(root).UpdateStagingDirectory,
+            DateTimeOffset.UtcNow.AddDays(8));
+        Assert(!Directory.Exists(attemptDirectory));
+    }
+    finally
+    {
+        Directory.Delete(root, recursive: true);
+    }
+}
+
+static async Task AppUpdateFailedPreparationBecomesRetainableAsync()
+{
+    var root = CreateTemporaryDirectory();
+    try
+    {
+        var latestUri = new Uri("https://updates.example.test/releases/latest");
+        var zipUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.zip");
+        var checksumUri = new Uri("https://github.com/ucsahinn/astral/releases/download/v2.0.14/Astral-2.0.14-win-x64.sha256.txt");
+        var packageBytes = CreateUpdatePackage(version: "2.0.15");
+        var expectedSha256 = Convert.ToHexString(SHA256.HashData(packageBytes));
+        var handler = new MapHttpMessageHandler();
+        handler.AddJson(
+            latestUri,
+            CreateReleaseJson("2.0.14", zipUri, checksumUri, expectedSha256, packageBytes.Length));
+        handler.AddText(
+            checksumUri,
+            $"{expectedSha256}  Astral-2.0.14-win-x64.zip");
+        using var httpClient = new HttpClient(handler);
+        var paths = new AppPaths(root);
+        var service = new AppUpdateService(
+            httpClient,
+            paths,
+            new CapturingVerifiedDownloader(packageBytes),
+            latestUri,
+            requireUpdateAuthenticode: false);
+        await WriteUpdaterHelperAsync(root);
+
+        await AssertThrowsAsync<InvalidDataException>(
+            () => service.PrepareLatestUpdateAsync(
+                new Version(2, 0, 12, 0),
+                root,
+                "Astral.exe",
+                CancellationToken.None));
+        AppUpdateStagingRetention.Cleanup(
+            paths.UpdateStagingDirectory,
+            DateTimeOffset.UtcNow.AddDays(8));
+
+        var retainedAttempts = Directory.Exists(paths.UpdateStagingDirectory)
+            ? Directory.EnumerateDirectories(
+                    paths.UpdateStagingDirectory,
+                    "*",
+                    SearchOption.AllDirectories)
+                .Count(path => Guid.TryParseExact(Path.GetFileName(path), "N", out _))
+            : 0;
+        Assert(retainedAttempts == 0);
     }
     finally
     {
@@ -2685,6 +3228,166 @@ static Task AppUpdateStagingRejectsUnsafeVersionDirectoryAsync()
     {
         Directory.Delete(root, recursive: true);
     }
+}
+
+static Task AppUpdateRetentionRemovesOnlyVerifiedOldAttemptsAsync()
+{
+    var root = CreateTemporaryDirectory();
+    try
+    {
+        var updatesRoot = Path.Combine(root, "updates");
+        var oldCompleted = ProtectedUpdateStaging.CreateVersionDirectory(
+            updatesRoot,
+            "2.0.12",
+            restrictAccess: false);
+        AppUpdateStagingRetention.MarkCompleted(oldCompleted);
+        var oldAbandoned = ProtectedUpdateStaging.CreateVersionDirectory(
+            updatesRoot,
+            "2.0.13",
+            restrictAccess: false);
+        AppUpdateStagingRetention.MarkAbandoned(oldAbandoned);
+        var active = AppUpdateStagingRetention.BeginAttempt(
+            updatesRoot,
+            "2.0.14",
+            restrictAccess: false,
+            DateTimeOffset.UtcNow);
+        var unmarked = ProtectedUpdateStaging.CreateVersionDirectory(
+            updatesRoot,
+            "2.0.11",
+            restrictAccess: false);
+        var unexpected = Path.Combine(updatesRoot, "2.0.10", "not-an-astral-attempt");
+        Directory.CreateDirectory(unexpected);
+
+        AppUpdateStagingRetention.Cleanup(
+            updatesRoot,
+            DateTimeOffset.UtcNow.AddDays(8));
+
+        Assert(!Directory.Exists(oldCompleted));
+        Assert(!Directory.Exists(oldAbandoned));
+        Assert(Directory.Exists(active));
+        Assert(Directory.Exists(unmarked));
+        Assert(Directory.Exists(unexpected));
+        Assert(Directory.Exists(updatesRoot));
+    }
+    finally
+    {
+        Directory.Delete(root, recursive: true);
+    }
+
+    return Task.CompletedTask;
+}
+
+static Task AppUpdateRetentionBoundsCompletedAttemptCountAsync()
+{
+    var root = CreateTemporaryDirectory();
+    try
+    {
+        var updatesRoot = Path.Combine(root, "updates");
+        var attempts = new List<string>();
+        var now = DateTimeOffset.UtcNow;
+        for (var index = 0; index < AppUpdateStagingRetention.MaxRetainedAttempts + 2; index++)
+        {
+            var attempt = ProtectedUpdateStaging.CreateVersionDirectory(
+                updatesRoot,
+                "2.0.14",
+                restrictAccess: false);
+            AppUpdateStagingRetention.MarkCompleted(attempt);
+            Directory.SetLastWriteTimeUtc(
+                attempt,
+                now.AddMinutes(index).UtcDateTime);
+            attempts.Add(attempt);
+        }
+
+        AppUpdateStagingRetention.Cleanup(
+            updatesRoot,
+            now.AddHours(1));
+
+        Assert(attempts.Take(2).All(path => !Directory.Exists(path)));
+        Assert(attempts.Skip(2).All(Directory.Exists));
+    }
+    finally
+    {
+        Directory.Delete(root, recursive: true);
+    }
+
+    return Task.CompletedTask;
+}
+
+static Task AppUpdateRetentionRejectsReparseRootAsync()
+{
+    var root = CreateTemporaryDirectory();
+    try
+    {
+        var actualRoot = Path.Combine(root, "outside-updates");
+        var completed = ProtectedUpdateStaging.CreateVersionDirectory(
+            actualRoot,
+            "2.0.14",
+            restrictAccess: false);
+        AppUpdateStagingRetention.MarkCompleted(completed);
+        var linkedRoot = Path.Combine(root, "updates-link");
+        try
+        {
+            Directory.CreateSymbolicLink(linkedRoot, actualRoot);
+        }
+        catch (Exception exception) when (
+            exception is UnauthorizedAccessException
+                or PlatformNotSupportedException
+                or IOException)
+        {
+            return Task.CompletedTask;
+        }
+
+        AppUpdateStagingRetention.Cleanup(
+            linkedRoot,
+            DateTimeOffset.UtcNow.AddDays(8));
+
+        Assert(Directory.Exists(completed));
+    }
+    finally
+    {
+        Directory.Delete(root, recursive: true);
+    }
+
+    return Task.CompletedTask;
+}
+
+static Task AppUpdateRetentionRejectsReparseAncestorAsync()
+{
+    var root = CreateTemporaryDirectory();
+    try
+    {
+        var outsideParent = Path.Combine(root, "outside-parent");
+        var actualRoot = Path.Combine(outsideParent, "updates");
+        var completed = ProtectedUpdateStaging.CreateVersionDirectory(
+            actualRoot,
+            "2.0.14",
+            restrictAccess: false);
+        AppUpdateStagingRetention.MarkCompleted(completed);
+        var linkedParent = Path.Combine(root, "linked-parent");
+        try
+        {
+            Directory.CreateSymbolicLink(linkedParent, outsideParent);
+        }
+        catch (Exception exception) when (
+            exception is UnauthorizedAccessException
+                or PlatformNotSupportedException
+                or IOException)
+        {
+            return Task.CompletedTask;
+        }
+
+        AppUpdateStagingRetention.Cleanup(
+            Path.Combine(linkedParent, "updates"),
+            DateTimeOffset.UtcNow.AddDays(8));
+
+        Assert(Directory.Exists(completed));
+    }
+    finally
+    {
+        Directory.Delete(root, recursive: true);
+    }
+
+    return Task.CompletedTask;
 }
 
 static Task AppUpdateRequiresSignaturesForAllPortableBinariesAsync()
@@ -3656,7 +4359,7 @@ static async Task ControllerDisposeCleansActiveConnectionAsync()
     }
 }
 
-static async Task ControllerDisposeTreatsAccessLockTimeoutAsBestEffortAsync()
+static async Task ControllerDisposeFailsClosedWhenAccessLockTimesOutAsync()
 {
     var root = CreateTemporaryDirectory();
     var process = new FakeManagedProcess();
@@ -3683,14 +4386,92 @@ static async Task ControllerDisposeTreatsAccessLockTimeoutAsBestEffortAsync()
     try
     {
         await controller.ConnectAsync();
-        await controller.DisposeAsync();
+        var exception = await AssertThrowsAsync<InvalidOperationException>(
+            () => controller.DisposeAsync().AsTask());
 
         Assert(process.StopCount == 1);
         Assert(accessLock.ClearTunnelScopeCount == 1);
         Assert(accessLock.EnableCount == 1);
+        Assert(exception.Message.Contains("could not verify", StringComparison.Ordinal));
         var events = await File.ReadAllTextAsync(paths.EventLog);
         Assert(events.Contains("\"source\":\"controller.cleanup.timeout\"", StringComparison.Ordinal));
         Assert(events.Contains("\"phase\":\"access-lock\"", StringComparison.Ordinal));
+    }
+    finally
+    {
+        Directory.Delete(root, recursive: true);
+    }
+}
+
+static async Task ControllerDisposeFailsClosedWhenWebProxyCleanupFailsAsync()
+{
+    var root = CreateTemporaryDirectory();
+    var process = new FakeManagedProcess();
+    var accessLock = new FakeDiscordAccessLock();
+    var webProxy = new FakeScopedWebProxyService
+    {
+        ClearException = new IOException("PAC cleanup failed.")
+    };
+    var controller = new DiscordTunnelController(
+        new AppPaths(root),
+        new DiscordAppScope(root, root, root),
+        new FakeWireSockBootstrapper(Path.Combine(
+            root,
+            "WireSock VPN Client",
+            "bin",
+            WireSockPackage.CliExecutableFileName)),
+        new FakeProfileProvisioner(Path.Combine(root, "discord.conf")),
+        new FakeProcessLauncher(process),
+        TimeSpan.Zero,
+        accessLock,
+        webProxyService: webProxy);
+
+    try
+    {
+        await controller.ConnectAsync();
+        var exception = await AssertThrowsAsync<InvalidOperationException>(
+            () => controller.DisposeAsync().AsTask());
+        Assert(exception.Message.Contains("could not verify", StringComparison.Ordinal));
+        Assert(webProxy.ClearCount == 1);
+        Assert(accessLock.ClearTunnelScopeCount == 1);
+        Assert(accessLock.EnableCount == 1);
+    }
+    finally
+    {
+        Directory.Delete(root, recursive: true);
+    }
+}
+
+static async Task ControllerDisposeFailsClosedWhenTunnelCleanupFailsAsync()
+{
+    var root = CreateTemporaryDirectory();
+    var process = new FakeManagedProcess();
+    var accessLock = new FakeDiscordAccessLock(
+        clearTunnelScopeException: new IOException("Tunnel cleanup failed."));
+    var webProxy = new FakeScopedWebProxyService();
+    var controller = new DiscordTunnelController(
+        new AppPaths(root),
+        new DiscordAppScope(root, root, root),
+        new FakeWireSockBootstrapper(Path.Combine(
+            root,
+            "WireSock VPN Client",
+            "bin",
+            WireSockPackage.CliExecutableFileName)),
+        new FakeProfileProvisioner(Path.Combine(root, "discord.conf")),
+        new FakeProcessLauncher(process),
+        TimeSpan.Zero,
+        accessLock,
+        webProxyService: webProxy);
+
+    try
+    {
+        await controller.ConnectAsync();
+        var exception = await AssertThrowsAsync<InvalidOperationException>(
+            () => controller.DisposeAsync().AsTask());
+        Assert(exception.Message.Contains("could not verify", StringComparison.Ordinal));
+        Assert(webProxy.ClearCount == 1);
+        Assert(accessLock.ClearTunnelScopeCount == 1);
+        Assert(accessLock.EnableCount == 1);
     }
     finally
     {
@@ -4633,17 +5414,17 @@ static async Task ControllerKeepsCompleteWebProofWhenAppTargetsNeedActionAsync()
     {
         ProofFactory = (attempt, _) => attempt == 1
             ? ScopedWebProxyProof.VerifiedAll(
-                ["Discord=discord.com", "Azar=azarlive.com"],
+                ["Discord=discord.com", "IMVU=imvu.com"],
                 18088,
                 2,
-                [TargetIds.Azar, TargetIds.Discord])
+                [TargetIds.Discord, TargetIds.IMVU])
             : ScopedWebProxyProof.Failed(
-                "azarlive.com",
+                "imvu.com",
                 18088,
-                "Selected target proxy proof failed after tunnel readiness: Azar=azarlive.com=Proxy CONNECT timed out.",
+                "Selected target proxy proof failed after tunnel readiness: IMVU=imvu.com=Proxy CONNECT timed out.",
                 requiredTargetCount: 2,
                 verifiedTargetCount: 1,
-                failedTargets: "Azar=azarlive.com=Proxy CONNECT timed out.")
+                failedTargets: "IMVU=imvu.com=Proxy CONNECT timed out.")
     };
     var controller = new DiscordTunnelController(
         paths,
@@ -4663,7 +5444,7 @@ static async Task ControllerKeepsCompleteWebProofWhenAppTargetsNeedActionAsync()
         tunnelReadinessRetryDelay: TimeSpan.Zero,
         webProxyService: webProxy,
         targetApplicationProofProvider: VerifiedTargetProof(TargetIds.Discord));
-    controller.TrySetTargetSelection(new TargetSelection([TargetIds.Discord, TargetIds.Azar]));
+    controller.TrySetTargetSelection(new TargetSelection([TargetIds.Discord, TargetIds.IMVU]));
 
     try
     {
@@ -4678,17 +5459,17 @@ static async Task ControllerKeepsCompleteWebProofWhenAppTargetsNeedActionAsync()
 
         var details = controller.CreateDiagnosticDetails();
         Assert(details["webProxyProof.verified"] == "True");
-        Assert(details["webProxyProof.verifiedTargetIds"] == "azar, discord");
+        Assert(details["webProxyProof.verifiedTargetIds"] == "discord, imvu");
         Assert(details["targetAppProof.verified"] == "False");
         Assert(details["targetAppProof.verifiedTargetIds"] == TargetIds.Discord);
-        Assert(details["targetAppProof.missingTargetIds"] == TargetIds.Azar);
+        Assert(details["targetAppProof.missingTargetIds"] == TargetIds.IMVU);
         Assert(details["targetProcessRefresh.manualActionRequired"] == "True");
         Assert(details["tunnelReadiness"] == "ready");
 
         var health = await File.ReadAllTextAsync(paths.HealthReport);
         Assert(health.Contains("\"status\":\"hedef için ek aksiyon gerekli\"", StringComparison.Ordinal));
         Assert(health.Contains("\"webProxyProof.verified\":\"True\"", StringComparison.Ordinal));
-        Assert(health.Contains("\"webProxyProof.verifiedTargetIds\":\"azar, discord\"", StringComparison.Ordinal));
+        Assert(health.Contains("\"webProxyProof.verifiedTargetIds\":\"discord, imvu\"", StringComparison.Ordinal));
         Assert(!health.Contains("Proxy CONNECT timed out", StringComparison.Ordinal));
         Assert(!health.Contains("\"status\":\"hata\"", StringComparison.Ordinal));
     }
@@ -4873,9 +5654,6 @@ static async Task ControllerRequiresManualActionForNonDiscordAppTargetWithoutPro
 {
     var appTargetIds = new[]
     {
-        TargetIds.Azar,
-        TargetIds.Tango,
-        TargetIds.LiVU,
         TargetIds.IMVU
     };
     foreach (var targetId in appTargetIds)
@@ -5016,7 +5794,7 @@ static async Task ControllerRequiresManualActionForMixedAppTargetsWithoutEveryPr
         tunnelReadinessRetryDelay: TimeSpan.Zero,
         webProxyService: webProxy,
         targetApplicationProofProvider: VerifiedTargetProof(TargetIds.Discord));
-    controller.TrySetTargetSelection(new TargetSelection([TargetIds.Discord, TargetIds.Azar]));
+    controller.TrySetTargetSelection(new TargetSelection([TargetIds.Discord, TargetIds.IMVU]));
 
     try
     {
@@ -5037,7 +5815,7 @@ static async Task ControllerRequiresManualActionForMixedAppTargetsWithoutEveryPr
         Assert(details["targetProcessRefresh.refreshed"] == "True");
         Assert(details["targetProcessRefresh.manualActionRequired"] == "True");
         Assert(details["targetProcessRefresh.message"]!.Contains(
-            "Azar",
+            "IMVU",
             StringComparison.OrdinalIgnoreCase));
         var health = await File.ReadAllTextAsync(paths.HealthReport);
         Assert(health.Contains("\"status\":\"hedef için ek aksiyon gerekli\"", StringComparison.Ordinal));
@@ -5096,7 +5874,7 @@ static async Task ControllerNormalizesIncompleteTargetApplicationProofAsync()
         tunnelReadinessRetryDelay: TimeSpan.Zero,
         webProxyService: new FakeScopedWebProxyService(),
         targetApplicationProofProvider: new FakeTargetApplicationProofProvider(incompleteProof));
-    controller.TrySetTargetSelection(new TargetSelection([TargetIds.Discord, TargetIds.Azar]));
+    controller.TrySetTargetSelection(new TargetSelection([TargetIds.Discord, TargetIds.IMVU]));
 
     try
     {
@@ -5112,7 +5890,7 @@ static async Task ControllerNormalizesIncompleteTargetApplicationProofAsync()
         Assert(details["targetProcessRefresh.runningProcessCount"] == "not-measured");
         Assert(details["targetAppProof.verified"] == "False");
         Assert(details["targetAppProof.verifiedTargetIds"] == TargetIds.Discord);
-        Assert(details["targetAppProof.missingTargetIds"] == TargetIds.Azar);
+        Assert(details["targetAppProof.missingTargetIds"] == TargetIds.IMVU);
     }
     finally
     {
@@ -5248,30 +6026,30 @@ static async Task ControllerRecheckRequiresFreshWebProofBeforeConnectedAsync()
     {
         ProofFactory = (attempt, _) => attempt == 1
             ? ScopedWebProxyProof.VerifiedAll(
-                ["Discord=discord.com", "Azar=azarlive.com"],
+                ["Discord=discord.com", "IMVU=imvu.com"],
                 18088,
                 2,
-                [TargetIds.Azar, TargetIds.Discord])
+                [TargetIds.Discord, TargetIds.IMVU])
             : ScopedWebProxyProof.Failed(
-                "azarlive.com",
+                "imvu.com",
                 18088,
                 "Recheck should not rerun complete web proof.",
                 requiredTargetCount: 2,
                 verifiedTargetCount: 1,
-                failedTargets: "Azar=azarlive.com=Proxy CONNECT timed out.")
+                failedTargets: "IMVU=imvu.com=Proxy CONNECT timed out.")
     };
     var registry = TargetRegistry.CreateDefault();
     Assert(registry.TryGet(TargetIds.Discord, out var discord));
-    Assert(registry.TryGet(TargetIds.Azar, out var azar));
+    Assert(registry.TryGet(TargetIds.IMVU, out var imvu));
     var targetProof = new MutableTargetApplicationProofProvider(
         new TargetApplicationProofResult(
             Required: true,
             IsVerified: false,
             VerifiedTargetIds: [TargetIds.Discord],
-            MissingTargetIds: [TargetIds.Azar],
-            Message: "Azar app proof is waiting.",
+            MissingTargetIds: [TargetIds.IMVU],
+            Message: "IMVU app proof is waiting.",
             FailureKind: "TargetApplicationProofMissingOwnedConnection",
-            Diagnostic: "azar:process-not-running"));
+            Diagnostic: "imvu:process-not-running"));
     var controller = new DiscordTunnelController(
         paths,
         new DiscordAppScope(root, root, root),
@@ -5290,7 +6068,7 @@ static async Task ControllerRecheckRequiresFreshWebProofBeforeConnectedAsync()
         tunnelReadinessRetryDelay: TimeSpan.Zero,
         webProxyService: webProxy,
         targetApplicationProofProvider: targetProof);
-    controller.TrySetTargetSelection(new TargetSelection([TargetIds.Discord, TargetIds.Azar]));
+    controller.TrySetTargetSelection(new TargetSelection([TargetIds.Discord, TargetIds.IMVU]));
 
     try
     {
@@ -5300,7 +6078,7 @@ static async Task ControllerRecheckRequiresFreshWebProofBeforeConnectedAsync()
         Assert(webProxy.VerifyTargetAccessCount == 1);
 
         targetProof.Result = TargetApplicationProofResult.Verified(
-            [discord!, azar!],
+            [discord!, imvu!],
             "Fake target application proof succeeded.");
 
         var rechecked = await controller.RecheckTargetActionAsync();
@@ -5431,7 +6209,7 @@ static async Task ControllerKeepsNonDiscordAppTargetsActionRequiredAfterRecheckA
     var webProxy = new FakeScopedWebProxyService
     {
         Proof = ScopedWebProxyProof.Verified(
-            "azar.example.test",
+            "imvu.example.test",
             18088,
             "Fake scoped web proxy target proof succeeded.")
     };
@@ -5443,7 +6221,7 @@ static async Task ControllerKeepsNonDiscordAppTargetsActionRequiredAfterRecheckA
             "WireSock VPN Client",
             "bin",
             WireSockPackage.CliExecutableFileName)),
-        new FakeProfileProvisioner(Path.Combine(root, "azar.conf")),
+        new FakeProfileProvisioner(Path.Combine(root, "imvu.conf")),
         new FakeProcessLauncher(process, "WireSock started"),
         TimeSpan.Zero,
         accessLock,
@@ -5452,7 +6230,7 @@ static async Task ControllerKeepsNonDiscordAppTargetsActionRequiredAfterRecheckA
         readinessProbe,
         tunnelReadinessRetryDelay: TimeSpan.Zero,
         webProxyService: webProxy);
-    controller.TrySetTargetSelection(new TargetSelection([TargetIds.Azar]));
+    controller.TrySetTargetSelection(new TargetSelection([TargetIds.IMVU]));
 
     try
     {
@@ -5475,6 +6253,72 @@ static async Task ControllerKeepsNonDiscordAppTargetsActionRequiredAfterRecheckA
         var health = await File.ReadAllTextAsync(paths.HealthReport);
         Assert(health.Contains("\"status\":\"hedef için ek aksiyon gerekli\"", StringComparison.Ordinal));
         Assert(!health.Contains("\"status\":\"bağlantı hazır\"", StringComparison.Ordinal));
+    }
+    finally
+    {
+        await controller.DisposeAsync();
+        Directory.Delete(root, recursive: true);
+    }
+}
+
+static async Task ControllerRequiresReconnectWhenTargetPathAppearsAfterLaunchAsync()
+{
+    var root = CreateTemporaryDirectory();
+    var process = new FakeManagedProcess();
+    var paths = new AppPaths(root);
+    var executableResolver = new MutableTargetExecutablePathResolver();
+    var scopeResolver = new TargetScopeResolver(
+        TargetRegistry.CreateDefault(),
+        new DiscordAppScope(root, root, root),
+        Path.Combine(root, "Astral.WebProxy.exe"),
+        executableResolver);
+    var webProxy = new FakeScopedWebProxyService
+    {
+        Proof = ScopedWebProxyProof.Verified(
+            "imvu.example.test",
+            18088,
+            "Fake scoped web proxy target proof succeeded.")
+    };
+    var controller = new DiscordTunnelController(
+        paths,
+        new DiscordAppScope(root, root, root),
+        new FakeWireSockBootstrapper(Path.Combine(
+            root,
+            "WireSock VPN Client",
+            "bin",
+            WireSockPackage.CliExecutableFileName)),
+        new FakeProfileProvisioner(Path.Combine(root, "imvu.conf")),
+        new FakeProcessLauncher(process, "WireSock started"),
+        TimeSpan.Zero,
+        new FakeDiscordAccessLock(),
+        new AstralDiagnostics(paths, TimeSpan.Zero),
+        new FakeDiscordProcessManager(new DiscordProcessSnapshot(0, [], [])),
+        new FakeTunnelReadinessProbe(
+            TunnelReadinessSnapshot.Ready("Up", 128, 256, "wt0", "WireGuard Tunnel")),
+        tunnelReadinessRetryDelay: TimeSpan.Zero,
+        targetScopeResolver: scopeResolver,
+        webProxyService: webProxy);
+    controller.TrySetTargetSelection(new TargetSelection([TargetIds.IMVU]));
+
+    try
+    {
+        await controller.ConnectAsync();
+        Assert(controller.Snapshot.State == TunnelState.TargetActionRequired);
+        Assert(controller.CurrentRoutingPlan.AllowedApplications.Count == 1);
+
+        executableResolver.Paths =
+            [Path.Combine(root, "Programs", "IMVU", "IMVUClient.exe")];
+        var rechecked = await controller.RecheckTargetActionAsync();
+
+        Assert(rechecked.State == TunnelState.TargetActionRequired);
+        Assert(rechecked.Message.Contains("yeniden bağlantı", StringComparison.OrdinalIgnoreCase));
+        Assert(controller.CurrentRoutingPlan.AllowedApplications.Count == 1);
+        Assert(controller.Snapshot.IsTunnelActive);
+        Assert(!process.HasExited);
+
+        var health = await File.ReadAllTextAsync(paths.HealthReport);
+        Assert(health.Contains("\"routingPlanRefreshRequired\":\"True\"", StringComparison.Ordinal));
+        Assert(health.Contains("bağlantıyı kesip yeniden bağlanın", StringComparison.OrdinalIgnoreCase));
     }
     finally
     {
@@ -8500,6 +9344,25 @@ file sealed class StalledStream : Stream
     }
 }
 
+file sealed class FakeTargetExecutablePathResolver(
+    IReadOnlyDictionary<string, IReadOnlyList<string>> pathsByTarget)
+    : ITargetExecutablePathResolver
+{
+    public IReadOnlyList<string> Resolve(TargetDefinition target)
+    {
+        return pathsByTarget.TryGetValue(target.Id, out var paths)
+            ? paths
+            : [];
+    }
+}
+
+file sealed class MutableTargetExecutablePathResolver : ITargetExecutablePathResolver
+{
+    public IReadOnlyList<string> Paths { get; set; } = [];
+
+    public IReadOnlyList<string> Resolve(TargetDefinition target) => Paths;
+}
+
 file sealed class StalledDuplexStream : Stream
 {
     public override bool CanRead => true;
@@ -8694,6 +9557,10 @@ file sealed class FakeVerifiedDownloader : IVerifiedDownloader
 {
     public int DownloadCount { get; private set; }
 
+    public Uri? LastSource { get; private set; }
+
+    public string? LastExpectedSha256 { get; private set; }
+
     public long? LastMaxBytes { get; private set; }
 
     public async Task DownloadAsync(
@@ -8705,6 +9572,8 @@ file sealed class FakeVerifiedDownloader : IVerifiedDownloader
         IProgress<DownloadProgress>? progress = null)
     {
         DownloadCount++;
+        LastSource = source;
+        LastExpectedSha256 = expectedSha256;
         LastMaxBytes = maxBytes;
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
         progress?.Report(new DownloadProgress(0, 20, 0));
@@ -8820,6 +9689,72 @@ file sealed class FailingGenerateWgcfCommandRunner : ICommandRunner
             7,
             string.Empty,
             "temporary wgcf failure"));
+    }
+}
+
+file sealed class RateLimitedWgcfCommandRunner(
+    AppPaths paths,
+    int failuresBeforeSuccess,
+    bool createAccountOnFirstFailure = false,
+    Action<int>? onRegister = null,
+    string failureDiagnostic =
+        "HTTP 429 Too Many Requests at cmd/register/register.go:62") : ICommandRunner
+{
+    private int _registerCount;
+
+    public List<string> Commands { get; } = [];
+
+    public Task<CommandResult> RunAsync(
+        string executable,
+        IReadOnlyList<string> arguments,
+        string workingDirectory,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var command = string.Join(" ", arguments);
+        Commands.Add(command);
+
+        if (command == "register --accept-tos")
+        {
+            _registerCount++;
+            onRegister?.Invoke(_registerCount);
+            if (_registerCount <= failuresBeforeSuccess)
+            {
+                if (createAccountOnFirstFailure && _registerCount == 1)
+                {
+                    Directory.CreateDirectory(workingDirectory);
+                    File.WriteAllText(paths.WgcfAccount, "account = true");
+                }
+
+                return Task.FromResult(new CommandResult(
+                    1,
+                    string.Empty,
+                    failureDiagnostic));
+            }
+
+            Directory.CreateDirectory(workingDirectory);
+            File.WriteAllText(paths.WgcfAccount, "account = true");
+            return Task.FromResult(new CommandResult(0, "registered", string.Empty));
+        }
+
+        if (command == "generate")
+        {
+            Directory.CreateDirectory(workingDirectory);
+            File.WriteAllText(paths.WgcfBaseProfile, """
+                [Interface]
+                PrivateKey = test-private-key
+                Address = 172.16.0.2/32
+
+                [Peer]
+                PublicKey = test-public-key
+                Endpoint = engage.cloudflareclient.com:2408
+                AllowedIPs = 0.0.0.0/0
+                """);
+            return Task.FromResult(new CommandResult(0, "generated", string.Empty));
+        }
+
+        return Task.FromResult(new CommandResult(1, string.Empty, "unexpected command"));
     }
 }
 

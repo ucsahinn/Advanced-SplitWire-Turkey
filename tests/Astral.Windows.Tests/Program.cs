@@ -33,6 +33,12 @@ if (!OperatingSystem.IsWindows())
 
 var verifier = new WireSockPackageVerifier();
 
+if (args.Length == 1 && args[0] == "--window-lifetime")
+{
+    RunWindowLifetimeOnly();
+    return 0;
+}
+
 if (args.Length == 1)
 {
     verifier.VerifyInstaller(Path.GetFullPath(args[0]));
@@ -40,6 +46,58 @@ if (args.Length == 1)
     return 0;
 }
 
+static void RunWindowLifetimeOnly()
+{
+    WindowsPresentationEnvironment.EnsureProcessEnvironment();
+    Exception? failure = null;
+    var thread = new Thread(() =>
+    {
+        try
+        {
+            var application = new Application
+            {
+                ShutdownMode = ShutdownMode.OnExplicitShutdown
+            };
+            application.Resources.MergedDictionaries.Add(new ResourceDictionary
+            {
+                Source = new Uri(
+                    "pack://application:,,,/Astral;component/Resources/Theme.xaml",
+                    UriKind.Absolute)
+            });
+            application.Startup += (_, _) =>
+            {
+                try
+                {
+                    VerifyWindowLifetimeBehavior();
+                }
+                catch (Exception exception)
+                {
+                    failure = exception;
+                }
+                finally
+                {
+                    application.Shutdown();
+                }
+            };
+            application.Run();
+        }
+        catch (Exception exception)
+        {
+            failure ??= exception;
+        }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+    if (failure is not null)
+    {
+        ExceptionDispatchInfo.Capture(failure).Throw();
+    }
+}
+
+VerifyScopedProxyFallbackMessageStaysTurkish();
+VerifyUnsignedReleaseTrustDiagnosticIsHonest();
+VerifyStartupArgumentsAreRedacted();
 RenderWindows();
 
 var temporaryFile = Path.Combine(
@@ -92,8 +150,10 @@ static void RenderWindows()
             {
                 try
                 {
+                    VerifyPackagedBackgroundVideoOpensSmoothly();
                     RenderMainWindow();
                     VerifyBackgroundVideoRespectsReducedMotion();
+                    VerifyBackgroundVideoFailureUsesNeutralFallback();
                     VerifyConnectedTargetCardsRequireProbeEvidence();
                     VerifyQueuedSnapshotsDoNotOverwriteDirectUiState();
                     VerifyStartupUpdateCheckShowsAvailableUpdate();
@@ -130,6 +190,109 @@ static void RenderWindows()
     }
 }
 
+static void VerifyStartupArgumentsAreRedacted()
+{
+    var safe = App.FormatStartupArgumentsForDiagnostics(
+        ["--background-start", "--token", "super-secret-value"]);
+
+    Assert(safe.Contains("--background-start", StringComparison.Ordinal));
+    Assert(safe.Contains("unknown-argument-count=2", StringComparison.Ordinal));
+    Assert(!safe.Contains("--token", StringComparison.OrdinalIgnoreCase));
+    Assert(!safe.Contains("super-secret-value", StringComparison.Ordinal));
+
+    var repeatedSafeSwitch = App.FormatStartupArgumentsForDiagnostics(
+        ["--background-start", "--background-start"]);
+    Assert(repeatedSafeSwitch == "--background-start");
+    Console.WriteLine("GEÇTİ Başlangıç argümanları tanılama kaydında redakte edilir");
+}
+
+static void VerifyUnsignedReleaseTrustDiagnosticIsHonest()
+{
+    var method = typeof(App).GetMethod(
+        "CreateReleaseTrustDiagnosticForTesting",
+        BindingFlags.Static | BindingFlags.NonPublic)
+        ?? throw new InvalidOperationException("Release trust tanı üreticisi bulunamadı.");
+
+    var message = (string?)method.Invoke(null, [false])
+        ?? throw new InvalidOperationException("Release trust tanısı üretilemedi.");
+    Assert(message.Contains("desteklenen imzasız resmi sürüm", StringComparison.OrdinalIgnoreCase));
+    Assert(message.Contains("yerel geliştirme derlemesi", StringComparison.OrdinalIgnoreCase));
+    Assert(!message.Contains("workflow", StringComparison.OrdinalIgnoreCase));
+    Assert(!message.Contains("reddeder", StringComparison.OrdinalIgnoreCase));
+
+    Console.WriteLine("GEÇTİ İmzasız paket tanısı resmi sürüm ile geliştirme derlemesini dürüstçe ayırdı");
+}
+
+static void VerifyScopedProxyFallbackMessageStaysTurkish()
+{
+    var registry = TargetRegistry.CreateDefault();
+    Assert(registry.TryGet(TargetIds.Wattpad, out var target));
+    var method = typeof(MainWindow).GetMethod(
+        "ProbeTargetHostsViaScopedProxyAsync",
+        BindingFlags.NonPublic | BindingFlags.Static)
+        ?? throw new MissingMethodException(
+            typeof(MainWindow).FullName,
+            "ProbeTargetHostsViaScopedProxyAsync");
+
+    var task = (Task)(method.Invoke(
+        null,
+        [target, Array.Empty<string>(), 0, CancellationToken.None])
+        ?? throw new InvalidOperationException("Scoped proxy probe task olusturulmadi."));
+    task.GetAwaiter().GetResult();
+
+    var tuple = task.GetType().GetProperty("Result")?.GetValue(task)
+        ?? throw new InvalidOperationException("Scoped proxy probe sonucu okunamadi.");
+    var result = tuple.GetType().GetField("Item2")?.GetValue(tuple)
+        ?? throw new InvalidOperationException("Scoped proxy hedef sonucu okunamadi.");
+    var message = result.GetType().GetProperty("Message")?.GetValue(result) as string;
+
+    Assert(message == "CONNECT 443 rota doğrulanamadı.");
+    Console.WriteLine("GEÇTİ Scoped proxy fallback metni Türkçe kaldı");
+}
+
+static void VerifyPackagedBackgroundVideoOpensSmoothly()
+{
+    MainWindow? window = null;
+    var root = CreateTemporaryDirectory();
+    var previousVideoSetting = Environment.GetEnvironmentVariable(
+        "ASTRAL_DISABLE_BACKGROUND_VIDEO");
+    try
+    {
+        Environment.SetEnvironmentVariable(
+            "ASTRAL_DISABLE_BACKGROUND_VIDEO",
+            null);
+        MainWindow.IsReducedMotionPreferredOverrideForTesting = () => false;
+
+        var videoPath = MainWindow.GetLocalBackgroundVideoPathForTesting();
+        var video = new FileInfo(videoPath);
+        Assert(video.Exists);
+        Assert(video.Length > 0 && video.Length < 2_000_000);
+
+        window = CreateMainWindow(root);
+        window.Show();
+        window.UpdateLayout();
+        PumpDispatcherUntil(
+            () => window.IsBackgroundVideoStartedForTesting,
+            TimeSpan.FromSeconds(8));
+
+        var backgroundVideo = FindVisualChildren<MediaElement>(window).Single();
+        Assert(backgroundVideo.Source is { IsFile: true });
+        Assert(backgroundVideo.Visibility == Visibility.Visible);
+        Assert(!window.IsBackgroundVideoOpeningForTesting);
+    }
+    finally
+    {
+        MainWindow.IsReducedMotionPreferredOverrideForTesting = null;
+        ForceCloseWindow(window);
+        Environment.SetEnvironmentVariable(
+            "ASTRAL_DISABLE_BACKGROUND_VIDEO",
+            previousVideoSetting);
+        Directory.Delete(root, recursive: true);
+    }
+
+    Console.WriteLine("GEÇTİ Paketli yerel arka plan videosu akıcı oynatım için açıldı");
+}
+
 static void RenderMainWindow()
 {
     MainWindow? window = null;
@@ -154,7 +317,7 @@ static void RenderMainWindow()
         SaveWindowPng(window, Path.Combine(
             FindRepositoryRoot(),
             "artifacts",
-            "ui-main-window-v2.2.36.png"));
+            "ui-main-window-v2.2.37.png"));
 
         Assert(window.ResizeMode == ResizeMode.NoResize);
         Assert(window.Width == 1280);
@@ -533,14 +696,7 @@ static void RenderMainWindow()
         window.Close();
         window = null;
 
-        Assert(MainWindow.TryGetBackgroundVideoUriForTesting(
-            out var fallbackBackgroundVideoUri));
-        Assert(fallbackBackgroundVideoUri.IsFile
-            || fallbackBackgroundVideoUri.Scheme == Uri.UriSchemeHttps);
-        if (!fallbackBackgroundVideoUri.IsFile)
-        {
-            Assert(fallbackBackgroundVideoUri.Host == "d8j0ntlcm91z4.cloudfront.net");
-        }
+        Assert(!MainWindow.TryGetBackgroundVideoUriForTesting(out _));
 
         Directory.CreateDirectory(Path.GetDirectoryName(localBackgroundVideoPath)!);
         File.WriteAllBytes(localBackgroundVideoPath, [0, 0, 0, 0]);
@@ -611,14 +767,151 @@ static void VerifyBackgroundVideoRespectsReducedMotion()
     Console.WriteLine("GEÇTİ Arka plan videosu azaltılmış harekette devre dışı kaldı");
 }
 
+static void VerifyBackgroundVideoFailureUsesNeutralFallback()
+{
+    MainWindow? window = null;
+    var root = CreateTemporaryDirectory();
+    var previousVideoSetting = Environment.GetEnvironmentVariable(
+        "ASTRAL_DISABLE_BACKGROUND_VIDEO");
+    try
+    {
+        Environment.SetEnvironmentVariable(
+            "ASTRAL_DISABLE_BACKGROUND_VIDEO",
+            null);
+        MainWindow.IsReducedMotionPreferredOverrideForTesting = () => false;
+
+        window = CreateMainWindow(root);
+        window.Show();
+        window.UpdateLayout();
+
+        var backgroundVideo = FindVisualChildren<MediaElement>(window).Single();
+        backgroundVideo.Source = new Uri(
+            MainWindow.GetLocalBackgroundVideoPathForTesting(),
+            UriKind.Absolute);
+        backgroundVideo.Visibility = Visibility.Visible;
+
+        var mediaFailed = typeof(MainWindow).GetMethod(
+            "BackgroundVideo_MediaFailed",
+            BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Arka plan video hata işleyicisi bulunamadı.");
+        mediaFailed.Invoke(
+            window,
+            [
+                backgroundVideo,
+                (ExceptionRoutedEventArgs)System.Runtime.CompilerServices.RuntimeHelpers
+                    .GetUninitializedObject(typeof(ExceptionRoutedEventArgs))
+            ]);
+
+        Assert(backgroundVideo.Source is null);
+        Assert(backgroundVideo.Visibility == Visibility.Collapsed);
+    }
+    finally
+    {
+        MainWindow.IsReducedMotionPreferredOverrideForTesting = null;
+        ForceCloseWindow(window);
+        Environment.SetEnvironmentVariable(
+            "ASTRAL_DISABLE_BACKGROUND_VIDEO",
+            previousVideoSetting);
+        Directory.Delete(root, recursive: true);
+    }
+
+    Console.WriteLine("GEÇTİ Bozuk yerel arka plan videosu nötr fallback kullandı");
+}
+
 static void VerifyWindowLifetimeBehavior()
 {
     VerifyCloseHidesToTrayWhenRunInBackgroundIsEnabled();
     VerifyTrayExitDisposesActiveConnectionWhenRunInBackgroundIsEnabled();
     VerifyTrayExitDoesNotHangWhenControllerCleanupIsSlow();
     VerifyWindowCloseDoesNotRecoverWhenControllerCleanupIsSlow();
+    VerifyWindowCloseRecoversWhenControllerCleanupFailsAndCanRetry();
+    VerifyTrayExitRecoversWhenControllerCleanupTimesOutAndCanRetry();
 
     Console.WriteLine("GEÇTİ Pencere kapanış ve arka plan davranışı doğrulandı");
+}
+
+static void VerifyWindowCloseRecoversWhenControllerCleanupFailsAndCanRetry()
+{
+    MainWindow? window = null;
+    var root = CreateTemporaryDirectory();
+    var launcher = new FakeProcessLauncher(
+        firstStopFailure: new InvalidOperationException("stop failed"));
+
+    try
+    {
+        window = CreateMainWindow(root, launcher);
+        window.Show();
+        window.UpdateLayout();
+        RunDispatcherTask(
+            GetController(window).ConnectAsync(CancellationToken.None),
+            TimeSpan.FromSeconds(3));
+        var closed = false;
+        window.Closed += (_, _) => closed = true;
+
+        window.Close();
+        PumpDispatcherUntil(
+            () => window.IsEnabled && launcher.LastProcess?.StopCallCount == 1,
+            TimeSpan.FromSeconds(3));
+
+        Assert(!closed);
+        Assert(window.IsVisible);
+        Assert(window.IsEnabled);
+        Assert(launcher.LastProcess is { HasExited: false, StopCallCount: 1 });
+        Assert(!window.HasCompletedControllerShutdownCleanup);
+
+        window.Close();
+        PumpDispatcherUntil(() => closed, TimeSpan.FromSeconds(3));
+        Assert(closed);
+        Assert(launcher.LastProcess is { HasExited: true, StopCallCount: 2 });
+        window = null;
+    }
+    finally
+    {
+        ForceCloseWindow(window);
+        Directory.Delete(root, recursive: true);
+    }
+}
+
+static void VerifyTrayExitRecoversWhenControllerCleanupTimesOutAndCanRetry()
+{
+    MainWindow? window = null;
+    var root = CreateTemporaryDirectory();
+    var launcher = new FakeProcessLauncher(
+        firstStopFailure: new TimeoutException("stop timeout"));
+
+    try
+    {
+        new AppSettingsStore(new AppPaths(root))
+            .SetRunInBackgroundOnCloseEnabled(true);
+        window = CreateMainWindow(root, launcher);
+        window.Show();
+        window.UpdateLayout();
+        RunDispatcherTask(
+            GetController(window).ConnectAsync(CancellationToken.None),
+            TimeSpan.FromSeconds(3));
+        var closed = false;
+        window.Closed += (_, _) => closed = true;
+
+        InvokeTrayExit(window);
+        PumpDispatcherUntil(
+            () => window.IsEnabled && launcher.LastProcess?.StopCallCount == 1,
+            TimeSpan.FromSeconds(3));
+        Assert(!closed);
+        Assert(window.IsVisible);
+        Assert(window.IsEnabled);
+        Assert(launcher.LastProcess is { HasExited: false, StopCallCount: 1 });
+
+        InvokeTrayExit(window);
+        PumpDispatcherUntil(() => closed, TimeSpan.FromSeconds(3));
+        Assert(closed);
+        Assert(launcher.LastProcess is { HasExited: true, StopCallCount: 2 });
+        window = null;
+    }
+    finally
+    {
+        ForceCloseWindow(window);
+        Directory.Delete(root, recursive: true);
+    }
 }
 
 static void VerifySingleInstanceMessageIncludesProcessHint()
@@ -1388,7 +1681,8 @@ file sealed class FakeCommandRunner : ICommandRunner
 
 file sealed class FakeProcessLauncher(
     TimeSpan? stopDelay = null,
-    string[]? wireSockLogLines = null) : IProcessLauncher
+    string[]? wireSockLogLines = null,
+    Exception? firstStopFailure = null) : IProcessLauncher
 {
     public FakeManagedProcess? LastProcess { get; private set; }
 
@@ -1404,12 +1698,14 @@ file sealed class FakeProcessLauncher(
             File.AppendAllLines(logPath, wireSockLogLines);
         }
 
-        LastProcess = new FakeManagedProcess(stopDelay);
+        LastProcess = new FakeManagedProcess(stopDelay, firstStopFailure);
         return LastProcess;
     }
 }
 
-file sealed class FakeManagedProcess(TimeSpan? stopDelay = null) : IManagedProcess
+file sealed class FakeManagedProcess(
+    TimeSpan? stopDelay = null,
+    Exception? firstStopFailure = null) : IManagedProcess
 {
     public int ProcessId { get; } = 1;
 
@@ -1421,10 +1717,18 @@ file sealed class FakeManagedProcess(TimeSpan? stopDelay = null) : IManagedProce
 
     public bool ExitConfirmed => HasExited;
 
+    public int StopCallCount { get; private set; }
+
     public int? ExitCode => HasExited ? 0 : null;
 
     public async Task StopAsync(TimeSpan timeout, CancellationToken cancellationToken)
     {
+        StopCallCount++;
+        if (StopCallCount == 1 && firstStopFailure is not null)
+        {
+            throw firstStopFailure;
+        }
+
         if (stopDelay is { } delay && delay > TimeSpan.Zero)
         {
             await Task.Delay(delay, cancellationToken);

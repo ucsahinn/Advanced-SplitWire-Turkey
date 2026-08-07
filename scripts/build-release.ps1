@@ -122,8 +122,6 @@ try {
         throw "dotnet publish hata kodu $LASTEXITCODE ile basarisiz oldu"
     }
 
-    & "$PSScriptRoot\prepare-background-video.ps1" -PublishDirectory $output
-
     $webProxyExecutable = Join-Path $output 'Astral.WebProxy.exe'
     if (-not (Test-Path -LiteralPath $webProxyExecutable)) {
         throw "Single-file Astral.WebProxy executable bulunamadi: $webProxyExecutable"

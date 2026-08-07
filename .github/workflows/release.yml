@@ -244,13 +244,18 @@ jobs:
             return $matches[0]
           }
 
-          function Assert-ReleaseTargetIfPinned($release) {
-            $targetCommitish = [string] $release.targetCommitish
-            if ($targetCommitish -match '^[a-fA-F0-9]{40}$') {
-              $headCommit = (git rev-parse HEAD).Trim()
-              if ($targetCommitish.ToLowerInvariant() -ne $headCommit.ToLowerInvariant()) {
-                throw "Release $tag farkli commit'e bagli. release=$targetCommitish head=$headCommit"
-              }
+          function Assert-ReleaseTagTargetsHead {
+            $tagCommitOutput = @(git rev-list -n 1 $tag 2>$null)
+            if ($LASTEXITCODE -ne 0 -or $tagCommitOutput.Count -ne 1) {
+              throw "Release tag commit'i cozumlenemedi: $tag"
+            }
+            $resolvedTarget = ([string]$tagCommitOutput[0]).Trim()
+            if ($resolvedTarget -notmatch '^[a-fA-F0-9]{40}$') {
+              throw "Release tag commit'i gecerli bir SHA degil: $resolvedTarget"
+            }
+            $headCommit = (git rev-parse HEAD).Trim()
+            if ($resolvedTarget.ToLowerInvariant() -ne $headCommit.ToLowerInvariant()) {
+              throw "Release $tag farkli commit'e bagli. tag=$resolvedTarget head=$headCommit"
             }
           }
 
@@ -262,7 +267,7 @@ jobs:
           }
 
           function Get-ReleaseMetadata {
-            $json = & gh release view $tag --repo $repo --json assets,isDraft,isPrerelease,targetCommitish
+            $json = & gh release view $tag --repo $repo --json assets,isDraft,isPrerelease
             if ($LASTEXITCODE -ne 0) {
               throw "Release $tag okunamadi."
             }
@@ -330,7 +335,7 @@ jobs:
             [bool] $compareLocalPackage)
           {
             $release = Get-ReleaseMetadata
-            Assert-ReleaseTargetIfPinned $release
+            Assert-ReleaseTagTargetsHead
 
             if ($release.isDraft -or $release.isPrerelease) {
               throw "Release $tag draft veya prerelease durumda; latest yapilmiyor."
@@ -378,7 +383,7 @@ jobs:
 
           gh release view $tag --repo $repo *> $null
           if ($LASTEXITCODE -eq 0) {
-            $release = gh release view $tag --repo $repo --json assets,isDraft,isPrerelease,targetCommitish |
+            $release = gh release view $tag --repo $repo --json assets,isDraft,isPrerelease |
               ConvertFrom-Json
             $archiveAsset = Get-AssetByName $release.assets $archiveName
             $shaAsset = Get-AssetByName $release.assets $shaName
@@ -389,7 +394,7 @@ jobs:
               throw "Release $tag draft veya prerelease durumda; otomatik latest yayına çevrilmiyor."
             }
 
-            Assert-ReleaseTargetIfPinned $release
+            Assert-ReleaseTagTargetsHead
 
             if ($archiveAsset -or $shaAsset -or $stableArchiveAsset -or $stableShaAsset) {
               Assert-ManagedAssetSetComplete $release $managedAssetNames
@@ -476,7 +481,7 @@ jobs:
                 $stableShaName `
                 $env:RELEASE_ARCHIVE `
                 $env:RELEASE_STABLE_ARCHIVE `
-                $false
+                $true
 
               Invoke-Gh release edit $tag `
                 --repo $repo `

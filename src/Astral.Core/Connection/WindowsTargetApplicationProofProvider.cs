@@ -11,6 +11,11 @@ namespace Astral.Core.Connection;
 
 public sealed class WindowsTargetApplicationProofProvider : ITargetApplicationProofProvider
 {
+    private const int VerifiedWebPort = 443;
+    private const string ProofBoundaryDiagnostic =
+        "proof-boundary=canonical-process-path+target-host+remote-port-443;" +
+        "local-tunnel-interface=not-enforced-pending-wiresock-evidence";
+
     private readonly ITargetApplicationProcessProvider _processProvider;
     private readonly IOwnedTcpConnectionProvider _tcpConnectionProvider;
     private readonly ITargetHostAddressResolver _addressResolver;
@@ -67,6 +72,31 @@ public sealed class WindowsTargetApplicationProofProvider : ITargetApplicationPr
                 continue;
             }
 
+            var trustedExecutablePaths = EnumerateTrustedExecutablePaths(
+                target,
+                routingPlan.AllowedApplications);
+            if (trustedExecutablePaths.Count == 0)
+            {
+                missingTargetIds.Add(target.Id);
+                diagnostics.Add($"{target.Id}:no-rooted-allowed-executable");
+                continue;
+            }
+
+            var trustedTargetProcesses = targetProcesses
+                .Where(process =>
+                    TargetApplicationExecutablePath.TryCanonicalize(
+                        process.ExecutablePath,
+                        out var executablePath)
+                    && trustedExecutablePaths.Contains(executablePath))
+                .ToArray();
+            if (trustedTargetProcesses.Length == 0)
+            {
+                missingTargetIds.Add(target.Id);
+                diagnostics.Add(
+                    $"{target.Id}:no-trusted-executable-path;processes={targetProcesses.Count}");
+                continue;
+            }
+
             var proofHosts = EnumerateProofHosts(target).ToArray();
             var proofAddresses = await ResolveProofAddressesAsync(
                 proofHosts,
@@ -78,12 +108,16 @@ public sealed class WindowsTargetApplicationProofProvider : ITargetApplicationPr
                 continue;
             }
 
-            var targetProcessIds = targetProcesses
+            var targetProcessIds = trustedTargetProcesses
                 .Select(process => process.ProcessId)
                 .ToHashSet();
+            // Deliberately limited to process ownership, canonical executable path,
+            // target address, and HTTPS port. Local tunnel-interface correlation is
+            // not enforced until real WireSock endpoint behavior is evidenced.
             var hasOwnedConnection = tcpConnections.Any(connection =>
                 targetProcessIds.Contains(connection.ProcessId)
                 && connection.State is TcpState.Established
+                && connection.RemotePort == VerifiedWebPort
                 && proofAddresses.Contains(connection.RemoteAddress));
             if (hasOwnedConnection)
             {
@@ -106,7 +140,8 @@ public sealed class WindowsTargetApplicationProofProvider : ITargetApplicationPr
                     .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
                     .ToArray(),
                 MissingTargetIds: [],
-                Message: "Selected application targets have owned TCP proof to their target hosts.");
+                Message: "Selected application targets have owned TCP proof to their target hosts.",
+                Diagnostic: ProofBoundaryDiagnostic);
         }
 
         return new TargetApplicationProofResult(
@@ -122,7 +157,7 @@ public sealed class WindowsTargetApplicationProofProvider : ITargetApplicationPr
                 .ToArray(),
             Message: "Selected application targets do not yet have target-owned TCP proof.",
             FailureKind: "TargetApplicationProofMissingOwnedConnection",
-            Diagnostic: string.Join("; ", diagnostics));
+            Diagnostic: string.Join("; ", diagnostics.Append(ProofBoundaryDiagnostic)));
     }
 
     private async Task<HashSet<IPAddress>> ResolveProofAddressesAsync(
@@ -166,6 +201,28 @@ public sealed class WindowsTargetApplicationProofProvider : ITargetApplicationPr
             .OrderBy(pattern => pattern, StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
+
+    private static HashSet<string> EnumerateTrustedExecutablePaths(
+        TargetDefinition target,
+        IReadOnlyList<string> allowedApplications)
+    {
+        var executableNames = target.ExecutableHints
+            .Select(hint => Path.GetFileName(hint.FileName))
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return allowedApplications
+            .Where(application =>
+                executableNames.Contains(Path.GetFileName(application)))
+            .Select(application =>
+                TargetApplicationExecutablePath.TryCanonicalize(
+                    application,
+                    out var canonicalPath)
+                    ? canonicalPath
+                    : null)
+            .OfType<string>()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
 }
 
 public interface ITargetApplicationProcessProvider
@@ -176,7 +233,10 @@ public interface ITargetApplicationProcessProvider
 
 public sealed record TargetApplicationProcessInfo(
     int ProcessId,
-    string ProcessName);
+    string ProcessName)
+{
+    public string? ExecutablePath { get; init; }
+}
 
 public interface IOwnedTcpConnectionProvider
 {
@@ -186,7 +246,39 @@ public interface IOwnedTcpConnectionProvider
 public sealed record OwnedTcpConnectionInfo(
     int ProcessId,
     IPAddress RemoteAddress,
-    TcpState State);
+    TcpState State)
+{
+    public int RemotePort { get; init; }
+}
+
+internal static class TargetApplicationExecutablePath
+{
+    public static bool TryCanonicalize(
+        string? path,
+        out string canonicalPath)
+    {
+        canonicalPath = string.Empty;
+        if (string.IsNullOrWhiteSpace(path)
+            || !Path.IsPathFullyQualified(path))
+        {
+            return false;
+        }
+
+        try
+        {
+            canonicalPath = Path.GetFullPath(path);
+            return true;
+        }
+        catch (Exception exception)
+            when (exception is ArgumentException
+                or IOException
+                or NotSupportedException
+                or System.Security.SecurityException)
+        {
+            return false;
+        }
+    }
+}
 
 public interface ITargetHostAddressResolver
 {
@@ -224,13 +316,23 @@ internal sealed class WindowsTargetApplicationProcessProvider
                     {
                         if (!process.HasExited)
                         {
-                            processes.Add(new TargetApplicationProcessInfo(
-                                process.Id,
-                                process.ProcessName));
+                            var executablePath = process.MainModule?.FileName;
+                            if (TargetApplicationExecutablePath.TryCanonicalize(
+                                    executablePath,
+                                    out var canonicalPath))
+                            {
+                                processes.Add(new TargetApplicationProcessInfo(
+                                    process.Id,
+                                    process.ProcessName)
+                                {
+                                    ExecutablePath = canonicalPath
+                                });
+                            }
                         }
                     }
                     catch (Exception exception)
                         when (exception is InvalidOperationException
+                            or NotSupportedException
                             or System.ComponentModel.Win32Exception)
                     {
                     }
@@ -333,7 +435,10 @@ internal sealed class WindowsOwnedTcpConnectionProvider : IOwnedTcpConnectionPro
                 connections.Add(new OwnedTcpConnectionInfo(
                     Convert.ToInt32(row.OwningPid, CultureInfo.InvariantCulture),
                     new IPAddress(row.RemoteAddr),
-                    ConvertTcpState(row.State)));
+                    ConvertTcpState(row.State))
+                {
+                    RemotePort = ConvertNetworkPort(row.RemotePort)
+                });
             }
 
             return connections;
@@ -390,7 +495,10 @@ internal sealed class WindowsOwnedTcpConnectionProvider : IOwnedTcpConnectionPro
                 connections.Add(new OwnedTcpConnectionInfo(
                     Convert.ToInt32(row.OwningPid, CultureInfo.InvariantCulture),
                     new IPAddress(row.RemoteAddr, row.RemoteScopeId),
-                    ConvertTcpState(row.State)));
+                    ConvertTcpState(row.State))
+                {
+                    RemotePort = ConvertNetworkPort(row.RemotePort)
+                });
             }
 
             return connections;
@@ -405,6 +513,9 @@ internal sealed class WindowsOwnedTcpConnectionProvider : IOwnedTcpConnectionPro
         Enum.IsDefined(typeof(TcpState), (int)state)
             ? (TcpState)(int)state
             : TcpState.Unknown;
+
+    private static int ConvertNetworkPort(uint port) =>
+        unchecked((ushort)IPAddress.NetworkToHostOrder(unchecked((short)port)));
 
     private enum TcpTableClass
     {

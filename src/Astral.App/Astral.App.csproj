@@ -18,8 +18,8 @@
     <AssemblyCompany>Vaultek Bilisim</AssemblyCompany>
     <AssemblyProduct>Astral VPN</AssemblyProduct>
     <Copyright>Copyright (c) 2026 Vaultek Bilisim</Copyright>
-    <Version>2.2.36</Version>
-    <FileVersion>2.2.36.0</FileVersion>
+    <Version>2.2.37</Version>
+    <FileVersion>2.2.37.0</FileVersion>
     <DefineConstants Condition="'$(AstralOfficialRelease)' == 'true'">$(DefineConstants);ASTRAL_OFFICIAL_RELEASE</DefineConstants>
     <RepositoryUrl>https://github.com/ucsahinn/astral</RepositoryUrl>
     <PublishTrimmed>false</PublishTrimmed>

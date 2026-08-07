@@ -410,6 +410,31 @@ public sealed class DiscordTunnelController : IAsyncDisposable
             }
 
             var routingPlan = CurrentRoutingPlan;
+            var refreshedRoutingPlan = _targetScopeResolver.Resolve(_targetSelection);
+            if (!AreApplicationScopesEquivalent(routingPlan, refreshedRoutingPlan))
+            {
+                _lastNextAction =
+                    "Hedef uygulama yolu bulundu. Yeni güvenli kapsamı uygulamak için bağlantıyı kesip yeniden bağlanın.";
+                SetStatus(
+                    TunnelState.TargetActionRequired,
+                    "Hedef uygulama için yeniden bağlantı gerekli",
+                    _lastNextAction);
+                _diagnostics.WriteHealth(
+                    "hedef için yeniden bağlantı gerekli",
+                    new Dictionary<string, string?>
+                    {
+                        ["operation"] = "target-action-recheck",
+                        ["selectedTargets"] = routingPlan.Summary,
+                        ["routingScope"] = CreateRoutingScopeDescription(routingPlan),
+                        ["refreshedRoutingScope"] = CreateRoutingScopeDescription(refreshedRoutingPlan),
+                        ["routingPlanRefreshRequired"] = "True",
+                        ["nextAction"] = _lastNextAction,
+                        ["wireSockRunning"] = "True"
+                    }.Concat(CreateTunnelReadinessDetails())
+                        .ToDictionary(pair => pair.Key, pair => pair.Value));
+                return _snapshot;
+            }
+
             CaptureWireSockProcessState();
             if (_wireSockProcess is null || _wireSockProcess.HasExited)
             {
@@ -716,6 +741,15 @@ public sealed class DiscordTunnelController : IAsyncDisposable
         {
             _operationGate.Release();
         }
+    }
+
+    private static bool AreApplicationScopesEquivalent(
+        RoutingPlan current,
+        RoutingPlan refreshed)
+    {
+        return current.AllowedApplications.Count == refreshed.AllowedApplications.Count
+            && current.AllowedApplications.ToHashSet(StringComparer.OrdinalIgnoreCase)
+                .SetEquals(refreshed.AllowedApplications);
     }
 
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
@@ -2779,6 +2813,9 @@ public sealed class DiscordTunnelController : IAsyncDisposable
             var requiresAccessLockRefresh = requiresTunnelCleanup
                 || !_accessLockConfirmed;
             _intentionalStop = true;
+            var webProxyCleared = true;
+            var tunnelScopeCleared = true;
+            var accessLockEnabled = true;
 
             if (_wireSockProcess is not null)
             {
@@ -2790,13 +2827,24 @@ public sealed class DiscordTunnelController : IAsyncDisposable
 
             if (requiresTunnelCleanup)
             {
-                await TryClearWebProxyScopeAsync("Dispose");
-                await TryClearTunnelScopeAsync("Dispose");
+                webProxyCleared = await TryClearWebProxyScopeAsync("Dispose");
+                tunnelScopeCleared = await TryClearTunnelScopeAsync("Dispose");
             }
 
             if (requiresAccessLockRefresh)
             {
-                await TryEnableAccessLockAsync("Dispose");
+                accessLockEnabled = await TryEnableAccessLockAsync("Dispose");
+            }
+
+            if (!webProxyCleared || !tunnelScopeCleared || !accessLockEnabled)
+            {
+                SetDisconnectedCleanupFailure(
+                    "Dispose",
+                    webProxyCleared,
+                    tunnelScopeCleared,
+                    accessLockEnabled);
+                throw new InvalidOperationException(
+                    "Controller cleanup could not verify web proxy, tunnel scope, and access-lock restoration.");
             }
 
             _disposed = true;

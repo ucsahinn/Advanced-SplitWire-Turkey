@@ -36,9 +36,14 @@ Bildirimlere şunları eklemeyin:
 - Kurucu sabit SHA-256 değeriyle doğrulanır.
 - Authenticode imzası, yayıncı, MSI ürün adı ve sürüm bilgisi kontrol edilir.
 - WireSock ve Cloudflare WARP koşulları kullanıcı onayı olmadan kabul edilmiş sayılmaz.
-- Repoda ve yayın arşivinde WireSock veya wgcf ikili dosyası bulunmaz.
-- Üretilen hesap ve profil dosyaları `%LOCALAPPDATA%\Astral` altında kalır.
+- Repoda WireSock veya wgcf ikili dosyası tutulmaz. Yayın arşivi doğrulanmış bir WireSock fallback kurucusu içerebilir; `wgcf` çalışma zamanında resmi sabit URL ve SHA-256 ile indirilir.
+- Hassas `wgcf-account.toml` ve üretilen WireGuard profil dosyaları `%PROGRAMDATA%\Astral` altında, yönetici erişimli uygulama veri alanında kalır.
+- `%LOCALAPPDATA%\Astral` yalnız kullanıcı ayarları, loglar ve PAC durum verisi için kullanılır.
+
+### İmzasız Dağıtım Sınırı
+
+İmzasız Astral paketinde ZIP/SHA-256/manifest denetimleri bütünlük tutarlılığı sağlar; Authenticode yayıncı kimliği veya GitHub hesabından bağımsız bir güncelleme güven kökü sağlamaz. Portable klasör kullanıcı tarafından yazılabiliyorsa yönetici olarak çalışan Astral'ın yanındaki `Astral.Updater.exe` veya `Astral.WebProxy.exe` başka bir yerel süreç tarafından değiştirilebilir. Paketi doğruladıktan sonra yalnız güvendiğiniz, başka kullanıcı ve süreçlerin yazamadığı bir klasöre çıkarın; çalıştırmadan önce klasör içeriğini değiştirmeyin. Daha yüksek güvence gereken dağıtımlarda Authenticode imzalı paket kullanılmalıdır.
 
 ## Yerel Veri Temizliği
 
-Astral ayarlarını, loglarını ve oluşturulan profilleri silmek için `%LOCALAPPDATA%\Astral` klasörünü kaldırabilirsiniz. WireSock ayrı bir Windows uygulamasıdır; kaldırmak için Windows Ayarları üzerinden işlem yapın.
+Hassas hesap ve profil verisini elle klasör silerek kaldırmayın. Önce Astral içindeki **Profili Temizle** eylemini kullanın; bu akış bağlantı kapsamını güvenli biçimde kapatır ve uygulamanın yönettiği `%PROGRAMDATA%\Astral` profil verisini kontrollü olarak temizler. `%LOCALAPPDATA%\Astral` ayar, log ve PAC durum verisini içerir; yalnız bu kullanıcı verisini sıfırlamak istediğinizde, Astral tamamen kapalıyken ayrıca temizlenebilir. WireSock ayrı bir Windows uygulamasıdır; kaldırmak için Windows Ayarları üzerinden işlem yapın.

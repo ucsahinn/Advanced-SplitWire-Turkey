@@ -72,9 +72,7 @@ public partial class MainWindow : Window, IDisposable
     private static readonly Uri RepositoryUri = new(
         "https://github.com/ucsahinn/astral");
     private static readonly Uri ReleaseNotesUri = new(
-        "https://github.com/ucsahinn/astral/releases/tag/v2.2.36");
-    private static readonly Uri BackgroundVideoCdnUri = new(
-        "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260328_105406_16f4600d-7a92-4292-b96e-b19156c7830a.mp4");
+        "https://github.com/ucsahinn/astral/releases/tag/v2.2.37");
     private static readonly string LocalBackgroundVideoPath = Path.Combine(
         AppContext.BaseDirectory,
         "Assets",
@@ -137,7 +135,6 @@ public partial class MainWindow : Window, IDisposable
     private bool _isBackgroundVideoOpening;
     private bool _backgroundVideoStartQueued;
     private bool _shutdownAfterCleanupQueued;
-    private bool _backgroundVideoFallbackAttempted;
     private string? _lastBackgroundVideoStatusKey;
     private DateTimeOffset _lastDnsRefreshUtc = DateTimeOffset.MinValue;
     private (string Summary, string Detail) _cachedDnsStatus = ("Okunuyor", "Makinenin aldığı DNS");
@@ -2366,7 +2363,7 @@ public partial class MainWindow : Window, IDisposable
             return (target, new TargetProbeResult(
                 TargetProbeStatus.Failed,
                 string.Join(", ", failures.Select(failure => failure.Host)),
-                failures.LastOrDefault()?.Message ?? "CONNECT 443 rota doÄŸrulanamadÄ±.",
+                failures.LastOrDefault()?.Message ?? "CONNECT 443 rota doğrulanamadı.",
                 startedAt));
         }
         catch (OperationCanceledException)
@@ -3651,42 +3648,14 @@ public partial class MainWindow : Window, IDisposable
             return;
         }
 
-        if (!_backgroundVideoFallbackAttempted
-            && BackgroundVideo.Source is not null
-            && BackgroundVideo.Source.IsFile)
-        {
-            _backgroundVideoFallbackAttempted = true;
-            _isBackgroundVideoStarted = false;
-            _isBackgroundVideoOpening = false;
-            _diagnostics.Warning(
-                "ui.backgroundVideo",
-                "Yerel arka plan videosu yuklenemedi; CDN fallback deneniyor.",
-                new Dictionary<string, string?>
-                {
-                    ["error"] = e.ErrorException?.Message,
-                    ["sourceKind"] = "local-file"
-                });
-            BackgroundVideo.Stop();
-            BackgroundVideo.Source = BackgroundVideoCdnUri;
-            BackgroundVideo.Visibility = Visibility.Visible;
-            _isBackgroundVideoOpening = true;
-            if (BackgroundVideo.IsLoaded)
-            {
-                BackgroundVideo.Play();
-            }
-
-            return;
-        }
-
-        _isBackgroundVideoStarted = false;
-        _isBackgroundVideoOpening = false;
-        BackgroundVideo.Visibility = Visibility.Collapsed;
+        StopBackgroundVideo();
         _diagnostics.Warning(
             "ui.backgroundVideo",
-            "Arka plan videosu yüklenemedi.",
+            "Yerel arka plan videosu yüklenemedi; nötr arka plan kullanılıyor.",
             new Dictionary<string, string?>
             {
-                ["error"] = e.ErrorException?.Message
+                ["error"] = e.ErrorException?.Message,
+                ["sourceKind"] = "local-file"
             });
     }
 
@@ -3848,11 +3817,11 @@ public partial class MainWindow : Window, IDisposable
         BackgroundVideo.Source ??= videoUri;
         BackgroundVideo.SpeedRatio = 1.0;
         LogBackgroundVideoStatusOnce(
-            "playing:" + (videoUri.IsFile ? "local" : "cdn"),
+            "playing:local",
             "Arka plan videosu baslatildi.",
             new Dictionary<string, string?>
             {
-                ["sourceKind"] = videoUri.IsFile ? "local-file" : "cdn",
+                ["sourceKind"] = "local-file",
                 ["reducedMotionPreferred"] = IsReducedMotionPreferred().ToString()
             });
 
@@ -3874,7 +3843,7 @@ public partial class MainWindow : Window, IDisposable
             return new Uri(SourceBackgroundVideoPath, UriKind.Absolute);
         }
 
-        return BackgroundVideoCdnUri;
+        return null;
     }
 
     internal static string GetLocalBackgroundVideoPathForTesting()
@@ -3896,6 +3865,8 @@ public partial class MainWindow : Window, IDisposable
     }
 
     internal bool IsBackgroundVideoOpeningForTesting => _isBackgroundVideoOpening;
+
+    internal bool IsBackgroundVideoStartedForTesting => _isBackgroundVideoStarted;
 
     internal bool IsBackgroundVideoStartQueuedForTesting => _backgroundVideoStartQueued;
 
@@ -4073,7 +4044,7 @@ public partial class MainWindow : Window, IDisposable
         _diagnostics.Info("ui.tray", "Astral bildirim alanından kapatılıyor.");
         await CloseAfterShutdownCleanupAsync(
             "tray-exit",
-            recoverOnFailure: false,
+            recoverOnFailure: true,
             deferClose: false);
     }
 
@@ -4912,7 +4883,7 @@ public partial class MainWindow : Window, IDisposable
         e.Cancel = true;
         await CloseAfterShutdownCleanupAsync(
             "window-close",
-            recoverOnFailure: false,
+            recoverOnFailure: true,
             deferClose: true);
     }
 
@@ -4969,13 +4940,30 @@ public partial class MainWindow : Window, IDisposable
                 exception);
             if (recoverOnFailure)
             {
+                if (_controllerShutdownCleanupTask is { IsCompleted: true })
+                {
+                    _controllerShutdownCleanupTask = null;
+                }
+
                 _exitRequested = false;
                 _isClosing = false;
                 IsEnabled = true;
-                Show();
-                Activate();
                 StatusMessage.Text = "Kapanış tamamlanamadı";
-                StatusDetail.Text = "Bağlantı koruması doğrulanamadı. Tanı paketi oluşturun.";
+                StatusDetail.Text =
+                    "Kapatma güvenliği doğrulanamadı. Çıkışı yeniden deneyin; " +
+                    "sorun sürerse tanı paketi oluşturun.";
+                _ = Dispatcher.BeginInvoke(
+                    DispatcherPriority.ApplicationIdle,
+                    new Action(() =>
+                    {
+                        if (_allowClose || _isClosing)
+                        {
+                            return;
+                        }
+
+                        Show();
+                        Activate();
+                    }));
                 return;
             }
         }
@@ -5137,7 +5125,7 @@ public partial class MainWindow : Window, IDisposable
                         ["state"] = _controller.Snapshot.State.ToString(),
                         ["message"] = exception.Message
                     });
-                return false;
+                throw;
             }
 
             _diagnostics.Info(

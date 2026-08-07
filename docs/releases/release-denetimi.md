@@ -16,7 +16,15 @@ Bu doküman, GitHub Releases yüzeyindeki sürüm kararlarını ve yayın kapıs
 
 ## Güncel Sürüm Kararı
 
-Güncel public yayın `v2.2.36` olarak doğrulandı. Sonraki yayın adayında aynı release kapıları yeniden çalıştırılır.
+Güncel public yayın `v2.2.36` olarak doğrulandı. `v2.2.37` yerel yayın adayıdır; tag, GitHub release ve public asset sonucu henüz oluşmuş sayılmaz.
+
+### v2.2.37 Yerel Aday Kapısı
+
+- Kaynak, testler ve üç Windows executable sürümü `2.2.37` olarak hizalanır.
+- Paket Authenticode imzası taşımaz; SmartScreen riski açıkça belgelenir. ZIP, GitHub asset digest, SHA-256 sidecar, update manifest ve Gitleaks birlikte zorunludur.
+- Optimize edilmiş yerel H.264 arka plan videosu paketlenir; gerçek WPF oynatma, azaltılmış hareket ve bozuk-dosya fallback testleri geçmeden aday hazır sayılmaz.
+- Azar, Tango ve LiVU web kapsamıdır; IMVU uygulama ve web kapsamıdır. Hedef kayıt defteri, smoke domain kataloğu ve belgeler aynı sözleşmeyi taşır.
+- Temiz build çıktısından Core, Windows, smoke helper, Updater ve WebProxy testleri çalışır. Canlı yönetici smoke matrisi ve GitHub yayını ayrı dış kapılardır.
 
 Neden `v2.2.36`?
 
@@ -46,6 +54,7 @@ Neden `v2.2.36`?
 
 | Release | Canlı durum | Asset durumu | Karar | Gerekçe |
 | --- | --- | --- | --- | --- |
+| `v2.2.37` | Yerel aday | Public release yok; yerel kapılar yeniden çalıştırılacak | Doğrulamayı tamamla | wgcf 2.2.32, cleanup/proof sertleştirmesi, yerel video ve güncel hedef kapsamı düzeltmeleri. |
 | `v2.2.36` | Yayında | 4 asset; public digest, SHA-256, manifest ve imza durumu doğrulandı | Koru | v2.2.35 güvenlik sıkılaştırmalarını açıkça imzasız dağıtır; GitHub digest, SHA-256, manifest ve Gitleaks kapıları geçti. |
 | `v2.2.35` | Tag var, release yok | Workflow imza kapısında durdu | v2.2.36 ile üstlen | WebProxy SSRF, authority ve kaynak tüketimi sertleştirmesi; reduced-motion uyumu; companion trust zinciri; genişletilmiş test ve secret-scan kapıları korunur. |
 | `v2.2.34` | Yayında | 4 asset | v2.2.36 ile üstlen | App proof DNS paralelleştirme, recheck sırasında app aksiyonu bekliyorsa tam WebProxy proof reuse, app proof temizlenince stale web proof ile `Connected` yanlış-pozitifinin engellenmesi ve bağlantı/recheck sürelerinin düşürülmesi. |

@@ -92,10 +92,10 @@ static async Task HandleClientAsync(
         using var headerTimeout = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken);
         headerTimeout.CancelAfter(TimeSpan.FromSeconds(10));
-        byte[] headerBytes;
+        HttpRequestHead requestHead;
         try
         {
-            headerBytes = await ReadHeaderAsync(
+            requestHead = await ReadHeaderAsync(
                 clientStream,
                 headerTimeout.Token);
         }
@@ -106,11 +106,12 @@ static async Task HandleClientAsync(
             return;
         }
 
-        if (headerBytes.Length == 0)
+        if (requestHead.HeaderBytes.Length == 0)
         {
             return;
         }
 
+        var headerBytes = requestHead.HeaderBytes;
         var headerText = Encoding.ASCII.GetString(headerBytes);
         var lines = headerText.Split(
             ["\r\n", "\n"],
@@ -144,7 +145,7 @@ static async Task HandleClientAsync(
         await HandleHttpAsync(
             parts[1],
             lines,
-            headerBytes,
+            requestHead,
             policy,
             clientStream,
             relayIdleTimeout,
@@ -194,7 +195,7 @@ static async Task HandleConnectAsync(
 static async Task HandleHttpAsync(
     string requestTarget,
     IReadOnlyList<string> lines,
-    byte[] headerBytes,
+    HttpRequestHead requestHead,
     WebProxyAccessPolicy policy,
     Stream clientStream,
     TimeSpan relayIdleTimeout,
@@ -237,7 +238,7 @@ static async Task HandleHttpAsync(
     }
 
     await using var upstreamStream = upstream.GetStream();
-    await upstreamStream.WriteAsync(headerBytes, cancellationToken);
+    await requestHead.WriteToAsync(upstreamStream, cancellationToken);
     await IdleTimeoutStreamRelay.RelayAsync(
         clientStream,
         upstreamStream,
@@ -245,7 +246,7 @@ static async Task HandleHttpAsync(
         cancellationToken);
 }
 
-static async Task<byte[]> ReadHeaderAsync(
+static async Task<HttpRequestHead> ReadHeaderAsync(
     Stream stream,
     CancellationToken cancellationToken)
 {
@@ -262,19 +263,17 @@ static async Task<byte[]> ReadHeaderAsync(
 
         memory.Write(buffer, 0, read);
         var current = memory.ToArray();
-        if (EndsHeader(current))
+        var delimiterIndex = current.AsSpan().IndexOf("\r\n\r\n"u8);
+        if (delimiterIndex >= 0)
         {
-            return current;
+            var headerLength = delimiterIndex + 4;
+            return new HttpRequestHead(
+                current[..headerLength],
+                current[headerLength..]);
         }
     }
 
-    return [];
-}
-
-static bool EndsHeader(byte[] value)
-{
-    return value.Length >= 4
-        && value.AsSpan(value.Length - 4).SequenceEqual("\r\n\r\n"u8);
+    return HttpRequestHead.Empty;
 }
 
 static string? ResolveHttpHost(
@@ -465,6 +464,22 @@ file sealed record ProxyOptions(
         }
 
         return new ProxyOptions(port, allowed, relayIdleTimeout);
+    }
+}
+
+file sealed record HttpRequestHead(byte[] HeaderBytes, byte[] Remainder)
+{
+    public static HttpRequestHead Empty { get; } = new([], []);
+
+    public async Task WriteToAsync(
+        Stream stream,
+        CancellationToken cancellationToken)
+    {
+        await stream.WriteAsync(HeaderBytes, cancellationToken);
+        if (Remainder.Length > 0)
+        {
+            await stream.WriteAsync(Remainder, cancellationToken);
+        }
     }
 }
 

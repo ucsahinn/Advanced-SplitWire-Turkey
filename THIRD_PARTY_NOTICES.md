@@ -14,7 +14,8 @@ WireSock ayrı bir üründür. Ticari veya kurumsal kullanım lisans gerektirebi
 ## wgcf
 
 - Proje: `ViRb3/wgcf`
-- Kullanılan sürüm: `2.2.31`
+- Kullanılan sürüm: `2.2.32`
+- Windows x64 SHA-256: `2b3648a5d39550b6423be562e619805ed9f7a64bcda51cf36c60caeba97b1777`
 - Dağıtım biçimi: Repoya veya yayın arşivine eklenmez.
 - Kullanım biçimi: İlk profil üretiminde resmi GitHub yayınından indirilir ve SHA-256 ile doğrulanır.
 

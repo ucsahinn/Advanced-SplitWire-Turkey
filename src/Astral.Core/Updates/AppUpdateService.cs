@@ -159,114 +159,123 @@ public sealed class AppUpdateService
             ? AuthenticodeSignatureVerifier.GetRequiredSignerThumbprint(
                 Path.Combine(applicationDirectory, executableName))
             : null;
-        var updateDirectory = ProtectedUpdateStaging.CreateVersionDirectory(
+        var updateDirectory = AppUpdateStagingRetention.BeginAttempt(
             _paths.UpdateStagingDirectory,
             versionText,
             _paths.ProtectUpdateStaging);
 
-        var packagePath = Path.Combine(updateDirectory, packageFileName);
-        var lastReportedDownloadBucket = -1;
-        var downloadProgress = new DirectProgress<DownloadProgress>(download =>
+        try
         {
-            if (!string.IsNullOrWhiteSpace(download.Message))
+            var packagePath = Path.Combine(updateDirectory, packageFileName);
+            var lastReportedDownloadBucket = -1;
+            var downloadProgress = new DirectProgress<DownloadProgress>(download =>
             {
-                var statusPercent = download.Percent is null
-                    ? 20
+                if (!string.IsNullOrWhiteSpace(download.Message))
+                {
+                    var statusPercent = download.Percent is null
+                        ? 20
+                        : 20 + (download.Percent.Value * 0.60);
+                    progress?.Report(new AppUpdateProgress(
+                        Math.Clamp(statusPercent, 20, 80),
+                        download.IsRetry
+                            ? "Bağlantı tekrar deneniyor"
+                            : $"v{versionText} indiriliyor",
+                        FormatDownloadStatusDetail(download)));
+                    return;
+                }
+
+                var percent = download.Percent is null
+                    ? 30
                     : 20 + (download.Percent.Value * 0.60);
+                percent = Math.Clamp(percent, 20, 80);
+                var bucket = (int)Math.Floor(percent);
+                if (bucket <= lastReportedDownloadBucket
+                    && download.Percent is not >= 100)
+                {
+                    return;
+                }
+
+                lastReportedDownloadBucket = bucket;
                 progress?.Report(new AppUpdateProgress(
-                    Math.Clamp(statusPercent, 20, 80),
-                    download.IsRetry
-                        ? "Bağlantı tekrar deneniyor"
-                        : $"v{versionText} indiriliyor",
-                    FormatDownloadStatusDetail(download)));
-                return;
-            }
-
-            var percent = download.Percent is null
-                ? 30
-                : 20 + (download.Percent.Value * 0.60);
-            percent = Math.Clamp(percent, 20, 80);
-            var bucket = (int)Math.Floor(percent);
-            if (bucket <= lastReportedDownloadBucket
-                && download.Percent is not >= 100)
-            {
-                return;
-            }
-
-            lastReportedDownloadBucket = bucket;
-            progress?.Report(new AppUpdateProgress(
-                percent,
-                $"v{versionText} indiriliyor",
-                FormatDownloadDetail(download)));
-        });
-        await _downloader.DownloadAsync(
-            packageUri,
-            packagePath,
-            expectedSha256,
-            cancellationToken,
-            check.PackageSizeBytes.Value,
-            downloadProgress);
-
-        var downloadedPackage = new FileInfo(packagePath);
-        if (!downloadedPackage.Exists || downloadedPackage.Length != check.PackageSizeBytes.Value)
-        {
-            throw new InvalidDataException(
-                "Güncelleme paketi beklenen boyutta değil.");
-        }
-
-        if (!string.Equals(
-                UpdatePackageValidator.ComputeSha256(packagePath),
+                    percent,
+                    $"v{versionText} indiriliyor",
+                    FormatDownloadDetail(download)));
+            });
+            await _downloader.DownloadAsync(
+                packageUri,
+                packagePath,
                 expectedSha256,
-                StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidDataException(
-                "Güncelleme paketi indirme sonrasında doğrulanamadı.");
+                cancellationToken,
+                check.PackageSizeBytes.Value,
+                downloadProgress);
+
+            var downloadedPackage = new FileInfo(packagePath);
+            if (!downloadedPackage.Exists || downloadedPackage.Length != check.PackageSizeBytes.Value)
+            {
+                throw new InvalidDataException(
+                    "Güncelleme paketi beklenen boyutta değil.");
+            }
+
+            if (!string.Equals(
+                    UpdatePackageValidator.ComputeSha256(packagePath),
+                    expectedSha256,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(
+                    "Güncelleme paketi indirme sonrasında doğrulanamadı.");
+            }
+
+            progress?.Report(new AppUpdateProgress(
+                86,
+                "Paket doğrulanıyor",
+                "SHA-256 ve GitHub digest eşleşti."));
+            UpdatePackageValidator.ValidateArchive(
+                packagePath,
+                executableName,
+                versionText);
+
+            progress?.Report(new AppUpdateProgress(
+                92,
+                "Dosyalar hazırlanıyor",
+                "Paket güvenli staging alanına açılıyor."));
+            var extractionDirectory = Path.Combine(
+                updateDirectory,
+                "payload-" + DateTimeOffset.UtcNow.ToString(
+                    "yyyyMMddHHmmss",
+                    CultureInfo.InvariantCulture) + "-" + Guid.NewGuid().ToString("N"));
+            UpdatePackageValidator.ExtractToDirectory(
+                packagePath,
+                extractionDirectory,
+                executableName,
+                versionText,
+                expectedSignerThumbprint,
+                expectedSha256);
+
+            var applicatorPath = CopyApplicator(
+                applicationDirectory,
+                updateDirectory,
+                expectedSignerThumbprint);
+            progress?.Report(new AppUpdateProgress(
+                98,
+                "Yükleme yardımcısı hazırlanıyor",
+                "Astral birazdan kapanıp yeni sürümle açılacak."));
+
+            AppUpdateStagingRetention.MarkCompleted(updateDirectory);
+            return AppUpdatePreparation.Prepared(
+                check.CurrentVersion,
+                check.LatestVersion,
+                check.ReleaseUrl,
+                packagePath,
+                extractionDirectory,
+                expectedSha256,
+                expectedSignerThumbprint,
+                applicatorPath);
         }
-
-        progress?.Report(new AppUpdateProgress(
-            86,
-            "Paket doğrulanıyor",
-            "SHA-256 ve GitHub digest eşleşti."));
-        UpdatePackageValidator.ValidateArchive(
-            packagePath,
-            executableName,
-            versionText);
-
-        progress?.Report(new AppUpdateProgress(
-            92,
-            "Dosyalar hazırlanıyor",
-            "Paket güvenli staging alanına açılıyor."));
-        var extractionDirectory = Path.Combine(
-            updateDirectory,
-            "payload-" + DateTimeOffset.UtcNow.ToString(
-                "yyyyMMddHHmmss",
-                CultureInfo.InvariantCulture) + "-" + Guid.NewGuid().ToString("N"));
-        UpdatePackageValidator.ExtractToDirectory(
-            packagePath,
-            extractionDirectory,
-            executableName,
-            versionText,
-            expectedSignerThumbprint,
-            expectedSha256);
-
-        var applicatorPath = CopyApplicator(
-            applicationDirectory,
-            updateDirectory,
-            expectedSignerThumbprint);
-        progress?.Report(new AppUpdateProgress(
-            98,
-            "Yükleme yardımcısı hazırlanıyor",
-            "Astral birazdan kapanıp yeni sürümle açılacak."));
-
-        return AppUpdatePreparation.Prepared(
-            check.CurrentVersion,
-            check.LatestVersion,
-            check.ReleaseUrl,
-            packagePath,
-            extractionDirectory,
-            expectedSha256,
-            expectedSignerThumbprint,
-            applicatorPath);
+        catch
+        {
+            AppUpdateStagingRetention.TryMarkAbandoned(updateDirectory);
+            throw;
+        }
     }
 
     public async Task<AppUpdatePreparation> PrepareLatestUpdateAsync(

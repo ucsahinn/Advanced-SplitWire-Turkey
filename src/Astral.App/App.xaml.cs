@@ -37,6 +37,7 @@ public partial class App : System.Windows.Application, IDisposable
     private const string DiagnosticExitEventName = @"Local\Astral.VaultekBilisim.DiagnosticExit";
     private const string DiagnosticConnectSmokeArgument = "--diagnostic-connect-smoke";
     private const string DiagnosticExitSmokeArgument = "--diagnostic-exit-smoke";
+    private const string BackgroundStartArgument = "--background-start";
     private static readonly TimeSpan ExitControllerDisposeTimeout = TimeSpan.FromSeconds(2);
     internal static TimeSpan ExitControllerDisposeTimeoutForTesting =>
         ExitControllerDisposeTimeout;
@@ -124,7 +125,7 @@ public partial class App : System.Windows.Application, IDisposable
 
         var startupDetails = new Dictionary<string, string?>
         {
-            ["args"] = string.Join(" ", e.Args),
+            ["args"] = FormatStartupArgumentsForDiagnostics(e.Args),
             ["processPath"] = Environment.ProcessPath
         };
         foreach (var detail in PortableInstallDiagnostics.Capture())
@@ -177,9 +178,7 @@ public partial class App : System.Windows.Application, IDisposable
         }
         _diagnostics.Info(
             "app.releaseTrust",
-            releaseBinariesAreSigned
-                ? "Astral release ikililerinin ortak Authenticode imzası doğrulandı."
-                : "İmzasız geliştirme derlemesi çalışıyor; yayın workflow'u bu paketi reddeder.");
+            CreateReleaseTrustDiagnostic(releaseBinariesAreSigned));
 
         var handler = new SocketsHttpHandler
         {
@@ -416,6 +415,18 @@ public partial class App : System.Windows.Application, IDisposable
         IReadOnlyList<RunningAstralInstanceInfo> runningInstances) =>
         CreateSingleInstanceMessage(runningInstances);
 
+    internal static string CreateReleaseTrustDiagnosticForTesting(
+        bool releaseBinariesAreSigned) =>
+        CreateReleaseTrustDiagnostic(releaseBinariesAreSigned);
+
+    private static string CreateReleaseTrustDiagnostic(bool releaseBinariesAreSigned) =>
+        releaseBinariesAreSigned
+            ? "Astral release ikililerinin ortak Authenticode imzası doğrulandı."
+            : "İmzasız Astral paketi çalışıyor. Bu durum desteklenen imzasız resmi sürümlerde " +
+              "görülebilir; bunun yerine yerel geliştirme derlemesi de imzasız olabilir. " +
+              "Paket kaynağı ile SHA-256 ve " +
+              "manifest doğrulaması ayrıca kontrol edilmelidir.";
+
     private static string CreateSingleInstanceMessage(
         IReadOnlyList<RunningAstralInstanceInfo> runningInstances)
     {
@@ -496,7 +507,7 @@ public partial class App : System.Windows.Application, IDisposable
                 "Astral VPN zaten çalışan bir süreç algıladığı için yeni pencere açılmadı.",
                 new Dictionary<string, string?>
                 {
-                    ["args"] = string.Join(" ", args),
+                    ["args"] = FormatStartupArgumentsForDiagnostics(args),
                     ["runningInstanceCount"] = runningInstances.Count.ToString(
                         System.Globalization.CultureInfo.InvariantCulture),
                     ["runningInstances"] = string.Join(
@@ -511,6 +522,29 @@ public partial class App : System.Windows.Application, IDisposable
         {
             Debug.WriteLine(exception);
         }
+    }
+
+    internal static string FormatStartupArgumentsForDiagnostics(
+        IReadOnlyList<string> args)
+    {
+        var recognizedArguments = args
+            .Where(argument =>
+                argument.Equals(BackgroundStartArgument, StringComparison.OrdinalIgnoreCase) ||
+                argument.Equals(DiagnosticConnectSmokeArgument, StringComparison.OrdinalIgnoreCase) ||
+                argument.Equals(DiagnosticExitSmokeArgument, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        var recognized = recognizedArguments
+            .Select(argument => argument.ToLowerInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var unknownCount = args.Count - recognizedArguments.Length;
+        var safeParts = new List<string>(recognized);
+        if (unknownCount > 0)
+        {
+            safeParts.Add($"unknown-argument-count={unknownCount}");
+        }
+
+        return safeParts.Count == 0 ? "none" : string.Join(" ", safeParts);
     }
 
     private static DateTime? TryReadProcessStartTime(Process process)

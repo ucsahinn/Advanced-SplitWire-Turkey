@@ -105,7 +105,7 @@ public sealed class TargetRegistry
                 TargetIds.Azar,
                 "Azar",
                 TargetCategory.LiveSocial,
-                TargetScopeKind.ApplicationAndWeb,
+                TargetScopeKind.Web,
                 [
                     "azarlive.com",
                     "www.azarlive.com",
@@ -113,7 +113,7 @@ public sealed class TargetRegistry
                     "azarlive.io",
                     "api.azarlive.io"
                 ],
-                ["Azar.exe"],
+                [],
                 "azar",
                 [
                     "azarlive.com",
@@ -124,13 +124,13 @@ public sealed class TargetRegistry
                 TargetIds.Tango,
                 "Tango",
                 TargetCategory.LiveSocial,
-                TargetScopeKind.ApplicationAndWeb,
+                TargetScopeKind.Web,
                 [
                     "tango.me",
                     "www.tango.me",
                     "api.tango.me"
                 ],
-                ["Tango.exe"],
+                [],
                 "tango",
                 [
                     "tango.me",
@@ -141,19 +141,23 @@ public sealed class TargetRegistry
                 TargetIds.LiVU,
                 "LiVU",
                 TargetCategory.LiveSocial,
-                TargetScopeKind.ApplicationAndWeb,
+                TargetScopeKind.Web,
                 [
+                    "livuapp.com",
+                    "www.livuapp.com",
                     "livu.me",
                     "www.livu.me",
                     "api.livu.me"
                 ],
-                ["LiVU.exe", "Livu.exe"],
+                [],
                 "livu",
                 [
+                    "livuapp.com",
+                    "www.livuapp.com",
                     "livu.me",
                     "www.livu.me"
                 ],
-                "https://www.livu.me"),
+                "https://livuapp.com"),
             Create(
                 TargetIds.IMVU,
                 "IMVU",

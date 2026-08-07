@@ -32,7 +32,7 @@ Astral'ın güvenlik hedefi, seçili hedefler dışında kalan trafiği kapsam d
 - WireSock resmi kurucu hash, Authenticode imzası, yayıncı ve sürüm bilgisiyle doğrulanır.
 - wgcf sabit SHA-256 özetiyle doğrulanır.
 - Güncelleme paketi GitHub release yolu, asset digest, `.sha256.txt` ve manifest eşleşmesiyle doğrulanır.
-- Arka plan videosu release paketi hazırlanırken sabit SHA-256 ile doğrulanır. Uygulama çalışma anında önce yerel `Assets/background.mp4` dosyasını oynatır; yerel asset yüklenemezse tanılamaya yazar ve aynı doğrulanmış CloudFront kaynağını CDN fallback olarak dener. Windows azaltılmış hareket tercihinde video ve hareketli durum vurguları devre dışı bırakılır; manuel kapatma için de `ASTRAL_DISABLE_BACKGROUND_VIDEO=1` kullanılabilir.
+- Yükseltilmiş Astral süreci uzaktan medya yüklemez. Release paketi optimize edilmiş yerel H.264 arka plan videosunu içerir; paketli varlık bulunamaz veya açılamazsa nötr arka plan kullanılır. Windows azaltılmış hareket tercihinde video ve hareketli durum vurguları devre dışı bırakılır.
 
 ## Log ve Tanılama
 

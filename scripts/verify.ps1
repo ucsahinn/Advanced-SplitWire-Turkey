@@ -42,6 +42,33 @@ try {
         throw "Windows guvenlik testleri hata kodu $LASTEXITCODE ile basarisiz oldu"
     }
 
+    powershell.exe `
+        -NoProfile `
+        -NonInteractive `
+        -ExecutionPolicy Bypass `
+        -File 'tests\Astral.Smoke.Tests\Program.ps1'
+    if ($LASTEXITCODE -ne 0) {
+        throw "Smoke helper testleri hata kodu $LASTEXITCODE ile basarisiz oldu"
+    }
+
+    $updaterTests = Join-Path $ArtifactsPath 'bin\Astral.Updater.Tests\release\Astral.Updater.Tests.dll'
+    if (-not (Test-Path -LiteralPath $updaterTests)) {
+        throw "Updater test cikisi bulunamadi: $updaterTests"
+    }
+    dotnet $updaterTests
+    if ($LASTEXITCODE -ne 0) {
+        throw "Updater testleri hata kodu $LASTEXITCODE ile basarisiz oldu"
+    }
+
+    $webProxyTests = Join-Path $ArtifactsPath 'bin\Astral.WebProxy.Tests\release\Astral.WebProxy.Tests.dll'
+    if (-not (Test-Path -LiteralPath $webProxyTests)) {
+        throw "WebProxy test cikisi bulunamadi: $webProxyTests"
+    }
+    dotnet $webProxyTests
+    if ($LASTEXITCODE -ne 0) {
+        throw "WebProxy testleri hata kodu $LASTEXITCODE ile basarisiz oldu"
+    }
+
     $forbidden = @(
         'ServerCertificateCustomValidationCallback',
         'RemoteCertificateValidationCallback',

@@ -302,12 +302,7 @@ $assetDirectory = [IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Path $assetDirectory -Force | Out-Null
 
 Draw-AstralIcon -Size 512 -Path (Join-Path $assetDirectory 'astral-mark.png')
-Draw-AstralIcon -Size 128 -Path (Join-Path $assetDirectory 'astral-logo.png')
 New-IcoFile -Sizes @(16, 24, 32, 48, 64, 128, 256) -Path (Join-Path $assetDirectory 'astral-v2.ico')
-Copy-Item `
-    -LiteralPath (Join-Path $assetDirectory 'astral-v2.ico') `
-    -Destination (Join-Path $assetDirectory 'astral.ico') `
-    -Force
 
 Get-ChildItem -LiteralPath $assetDirectory -Filter 'astral*' |
     Sort-Object Name |

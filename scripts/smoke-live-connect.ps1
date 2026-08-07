@@ -12,6 +12,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot 'smoke-live-connect.helpers.ps1')
 if ([string]::IsNullOrWhiteSpace($ExePath)) {
     $ExePath = Join-Path $root 'artifacts\publish\win-x64\Astral.exe'
 }
@@ -40,22 +41,14 @@ $manualTargetActionRecheckEnabled =
 $settingsPath = Join-Path $env:LOCALAPPDATA 'Astral\settings.json'
 $profilePath = Join-Path $env:ProgramData 'Astral\profiles\discord.conf'
 $logPath = Join-Path $env:LOCALAPPDATA 'Astral\logs\tunnel.log'
+$pacFilePath = Join-Path $env:LOCALAPPDATA 'Astral\web-proxy\astral-scoped.pac'
+$pacStateFilePath = Join-Path $env:LOCALAPPDATA 'Astral\web-proxy\proxy-state.json'
 $hostsPath = Join-Path $env:SystemRoot 'System32\drivers\etc\hosts'
 $beginMarker = '# BEGIN Astral hedef kilidi'
 $ruleName = 'Astral.BlockTargetDomains'
 $targetAppPatterns = @{
     'discord' = @(
         'Discord(?:PTB|Canary|Development)?\.exe'
-    )
-    'azar' = @(
-        'Azar\.exe'
-    )
-    'tango' = @(
-        'Tango\.exe'
-    )
-    'livu' = @(
-        'LiVU\.exe',
-        'Livu\.exe'
     )
     'imvu' = @(
         'IMVUClient\.exe',
@@ -69,27 +62,7 @@ $targetProcessNames = @{
         'DiscordCanary',
         'DiscordDevelopment'
     )
-    'azar' = @('Azar')
-    'tango' = @('Tango')
-    'livu' = @('LiVU', 'Livu')
     'imvu' = @('IMVUClient', 'IMVU')
-}
-$targetLockProbeDomains = @{
-    'discord' = @('discord.com', 'discord.gg')
-    'wattpad' = @('wattpad.com', 'www.wattpad.com')
-    'azar' = @('azarlive.com', 'www.azarlive.com')
-    'bigo-live' = @('bigo.tv', 'www.bigo.tv')
-    'imvu' = @('imvu.com', 'www.imvu.com')
-    'livu' = @('livu.me', 'www.livu.me')
-    'tango' = @('tango.me', 'www.tango.me')
-    'blogspot' = @('blogspot.com', 'blogger.com')
-    'radio-garden' = @('radio.garden', 'www.radio.garden')
-    'deutsche-welle' = @('dw.com', 'www.dw.com')
-    'voice-of-america' = @('voanews.com', 'www.voanews.com')
-    'eksi-sozluk' = @('eksisozluk.com', 'www.eksisozluk.com')
-    'grok' = @('grok.com', 'x.ai')
-    'imgur' = @('imgur.com', 'www.imgur.com')
-    'pastebin' = @('pastebin.com', 'www.pastebin.com')
 }
 $webTargetIds = @(
     'discord',
@@ -108,13 +81,21 @@ $webTargetIds = @(
     'imgur',
     'pastebin'
 )
+$webTargetIdsForSelection = @(
+    Get-AstralSmokeTargetSubset `
+        -SelectedTargetIds $normalizedTargetIds `
+        -EligibleTargetIds $webTargetIds
+)
+$applicationTargetIdsForSelection = @(
+    Get-AstralSmokeTargetSubset `
+        -SelectedTargetIds $normalizedTargetIds `
+        -EligibleTargetIds @($targetAppPatterns.Keys)
+)
 $requiresWebProxy = @(
-    $normalizedTargetIds |
-        Where-Object { $webTargetIds -contains $_ }
+    $webTargetIdsForSelection
 ).Count -gt 0
 $requiresApplicationTunnelProof = @(
-    $normalizedTargetIds |
-        Where-Object { $targetAppPatterns.ContainsKey($_) }
+    $applicationTargetIdsForSelection
 ).Count -gt 0
 $requiresTargetApplicationProof = $requiresApplicationTunnelProof
 $requiresDiscord = $normalizedTargetIds -contains 'discord'
@@ -156,6 +137,10 @@ function Wait-Until {
 }
 
 function Test-AstralHostsLock {
+    param(
+        [string[]]$SelectedTargetIds = $normalizedTargetIds
+    )
+
     if (-not (Test-Path -LiteralPath $hostsPath)) {
         return $false
     }
@@ -166,34 +151,20 @@ function Test-AstralHostsLock {
     }
 
     $content = [string]$content
-    if (-not $content.Contains($beginMarker)) {
-        return $false
-    }
-
-    $expectedDomains = Get-ExpectedLockProbeDomains
-    foreach ($domain in $expectedDomains) {
-        if (-not $content.Contains('0.0.0.0 ' + $domain) -or
-            -not $content.Contains('::1 ' + $domain)) {
-            return $false
-        }
-    }
-
-    return $true
+    $expectedDomains = Get-ExpectedLockProbeDomains `
+        -SelectedTargetIds $SelectedTargetIds
+    return Test-AstralSmokeHostsLockContent `
+        -Content $content `
+        -ExpectedDomains $expectedDomains
 }
 
 function Get-ExpectedLockProbeDomains {
-    $domains = New-Object System.Collections.Generic.List[string]
-    foreach ($targetId in $normalizedTargetIds) {
-        if (-not $targetLockProbeDomains.ContainsKey($targetId)) {
-            continue
-        }
+    param(
+        [string[]]$SelectedTargetIds = $normalizedTargetIds
+    )
 
-        foreach ($domain in $targetLockProbeDomains[$targetId]) {
-            [void]$domains.Add($domain)
-        }
-    }
-
-    return @($domains | Select-Object -Unique)
+    return @(Get-AstralSmokeExpectedLockDomains `
+        -SelectedTargetIds $SelectedTargetIds)
 }
 
 function Get-AstralRuleEnabled {
@@ -379,26 +350,9 @@ function Set-AstralTargetSelection {
         ([bool]$settings.AcceptedCloudflareWarpTerms) `
         'Cloudflare WARP kosul onayi yok; canli smoke testi onay ekranini gecemez.'
 
-    $targetSelection = [pscustomobject]@{
-        SelectedTargetIds = @($normalizedTargetIds)
-    }
-
-    $settings | Add-Member `
-        -Force `
-        -NotePropertyName BrowserAccessEnabled `
-        -NotePropertyValue $false
-    $settings | Add-Member `
-        -Force `
-        -NotePropertyName BrowserAccessPreferenceVersion `
-        -NotePropertyValue 1
-    $settings | Add-Member `
-        -Force `
-        -NotePropertyName TargetSelectionPreferenceVersion `
-        -NotePropertyValue 2
-    $settings | Add-Member `
-        -Force `
-        -NotePropertyName TargetSelection `
-        -NotePropertyValue $targetSelection
+    $settings = Set-AstralSmokeSettingsForRun `
+        -Settings $settings `
+        -SelectedTargetIds $normalizedTargetIds
 
     $settings |
         ConvertTo-Json -Depth 8 |
@@ -563,6 +517,11 @@ function Copy-HealthResult {
         [string]$Health.details.'targetAppProof.verifiedTargetIds'
     $result.HealthTargetAppProofMissingTargetIds =
         [string]$Health.details.'targetAppProof.missingTargetIds'
+    $result.HealthTargetAppProofIncludesSelectedTargets =
+        (-not $requiresTargetApplicationProof) -or
+        (Test-AstralSmokeDelimitedTargetSetEquals `
+            -Actual $result.HealthTargetAppProofVerifiedTargetIds `
+            -Expected $applicationTargetIdsForSelection)
     $result.HealthTargetAppProofFailureKind =
         [string]$Health.details.'targetAppProof.failureKind'
     $result.HealthTargetAppProofDiagnostic =
@@ -597,7 +556,7 @@ function Copy-HealthResult {
     $result.HealthWebProxyProofCountsMatch =
         (-not $requiresWebProxy) -or
         (
-            $requiredTargetCount -gt 0 -and
+            $requiredTargetCount -eq $webTargetIdsForSelection.Count -and
             $requiredTargetCount -eq $verifiedTargetCount
         )
     $result.HealthWebProxyProofHasNoFailedTargets =
@@ -605,7 +564,7 @@ function Copy-HealthResult {
         [string]::IsNullOrWhiteSpace($result.HealthWebProxyProofFailedTargets)
     $result.HealthWebProxyProofIncludesSelectedTargets =
         (-not $requiresWebProxy) -or
-        (Test-DelimitedValueContainsAll `
+        (Test-AstralSmokeDelimitedTargetSetEquals `
             -Actual $result.HealthWebProxyProofVerifiedTargetIds `
             -Expected $webTargetIdsForSelection)
     $result.HealthHasRequiredWebProxyProof =
@@ -674,6 +633,7 @@ function Copy-HealthResult {
         (
             $result.HealthTargetAppProofRequired -eq 'True' -and
             $result.HealthTargetAppProofVerified -eq 'True' -and
+            [bool]$result.HealthTargetAppProofIncludesSelectedTargets -and
             [string]::IsNullOrWhiteSpace($result.HealthTargetAppProofMissingTargetIds)
         )
     $result.HealthHasRequiredApplicationProof =
@@ -785,6 +745,7 @@ function Stop-AstralProcess {
     [void]$Process.CloseMainWindow()
     [void]$Process.WaitForExit(15000)
     if (-not $Process.HasExited) {
+        $script:AstralForceStopUsed = $true
         Stop-Process -Id $Process.Id -Force
         [void]$Process.WaitForExit(15000)
     }
@@ -1074,10 +1035,25 @@ public static class NativeWindow
 }
 "@
 
-$originalSettings = $null
-if (Test-Path -LiteralPath $settingsPath) {
-    $originalSettings = Get-Content -Raw -LiteralPath $settingsPath
+Assert-Condition `
+    (-not (Test-AstralSmokeHasRunningInstance `
+        -Processes @(Get-Process -Name 'Astral' -ErrorAction SilentlyContinue))) `
+    'Astral zaten calisiyor. Smoke settings dosyasini degistirmeden once mevcut Astral ornegini normal kapatin.'
+
+$originalSettingsExisted = Test-Path -LiteralPath $settingsPath
+$originalSettingsBytes = $null
+if ($originalSettingsExisted) {
+    $originalSettingsBytes = [IO.File]::ReadAllBytes($settingsPath)
 }
+$originalTargetIds = if ($null -ne $originalSettingsBytes) {
+    @(Get-AstralSmokeSelectedTargetIdsFromSettingsBytes `
+        -SettingsBytes $originalSettingsBytes)
+}
+else {
+    @('discord')
+}
+$originalAutoConfigState = Get-AstralSmokeAutoConfigState
+$script:AstralForceStopUsed = $false
 
 $logOffset = 0
 if (Test-Path -LiteralPath $logPath) {
@@ -1115,6 +1091,7 @@ $result = [ordered]@{
     HealthTargetAppProofVerified = ''
     HealthTargetAppProofVerifiedTargetIds = ''
     HealthTargetAppProofMissingTargetIds = ''
+    HealthTargetAppProofIncludesSelectedTargets = -not $requiresTargetApplicationProof
     HealthTargetAppProofFailureKind = ''
     HealthTargetAppProofDiagnostic = ''
     HealthWebProxyProofVerified = ''
@@ -1190,7 +1167,10 @@ $result = [ordered]@{
     WireSockProcessStoppedAfterDisconnect = $false
     FinalHostsLock = $false
     FinalFirewallRuleEnabled = $false
+    FinalAutoConfigUrlRestored = $false
+    FinalPacArtifactsCleared = $false
     FinalTargetLockRestored = $false
+    AstralExitedGracefully = $false
     SettingsRestored = $false
     WindowTitle = ''
     WindowBounds = ''
@@ -1482,25 +1462,98 @@ try {
 
         $result.FinalHostsLock = Wait-Until { Test-AstralHostsLock } 20
         $result.FinalFirewallRuleEnabled = (Get-AstralRuleEnabled) -eq 'True'
-        $result.FinalTargetLockRestored = [bool]$result.FinalHostsLock
+        $result.FinalTargetLockRestored =
+            [bool]$result.FinalHostsLock -and
+            [bool]$result.FinalFirewallRuleEnabled
     }
     finally {
-        if ($null -ne $originalSettings) {
-            Set-Content `
-                -LiteralPath $settingsPath `
-                -Value $originalSettings `
-                -NoNewline `
-                -Encoding UTF8
-            $result.SettingsRestored = $true
-        }
+        Invoke-AstralSmokeFinalCleanup `
+            -StopAction {
+                Stop-AstralProcess -Process $appProcess
+                $result.AstralExitedGracefully =
+                    -not [bool]$script:AstralForceStopUsed
+            } `
+            -CleanupAction {
+                $result.SettingsRestored = Restore-AstralSmokeSettingsState `
+                    -SettingsPath $settingsPath `
+                    -OriginalBytes $originalSettingsBytes `
+                    -OriginalExisted ($null -ne $originalSettingsBytes)
 
-        Stop-AstralProcess -Process $appProcess
+                $restoreProcess = $null
+                try {
+                    $restoreProcess = Start-Process `
+                        -FilePath $ExePath `
+                        -WorkingDirectory (Split-Path -Parent $ExePath) `
+                        -PassThru
+                    $restoreWindowFound = Wait-Until {
+                        $null -ne (Find-AstralWindow -ProcessId $restoreProcess.Id)
+                    } 30
+                    Assert-Condition `
+                        $restoreWindowFound `
+                        'Hedef kilidi restore uygulamasinin penceresi hazir olmadi.'
 
-        if (-not [bool]$result.FinalHostsLock) {
-            $result.FinalHostsLock = Wait-Until { Test-AstralHostsLock } 20
-        }
-        $result.FinalFirewallRuleEnabled = (Get-AstralRuleEnabled) -eq 'True'
-        $result.FinalTargetLockRestored = [bool]$result.FinalHostsLock
+                    $originalTargetLockRestored = Wait-Until {
+                        $targetLockRestored =
+                            (Test-AstralHostsLock `
+                            -SelectedTargetIds $originalTargetIds) -and
+                            (Get-AstralRuleEnabled) -eq 'True'
+                        Test-AstralSmokeRestoreStartupReady `
+                            -WindowFound $restoreWindowFound `
+                            -TargetLockRestored $targetLockRestored
+                    } 30
+                    Assert-Condition `
+                        $originalTargetLockRestored `
+                        'Ozgun hedef seciminin hosts/firewall kilidi geri yuklenemedi.'
+                }
+                finally {
+                    Stop-AstralProcess -Process $restoreProcess
+                    $result.AstralExitedGracefully =
+                        -not [bool]$script:AstralForceStopUsed
+                }
+
+                # Restore uygulamasi ilk calistirmada varsayilan settings.json
+                # uretebilir. Uygulama kapandiktan sonra ozgun dosya durumunu
+                # ikinci kez uygula.
+                $result.SettingsRestored = Restore-AstralSmokeSettingsState `
+                    -SettingsPath $settingsPath `
+                    -OriginalBytes $originalSettingsBytes `
+                    -OriginalExisted ($null -ne $originalSettingsBytes)
+                Assert-Condition `
+                    $result.SettingsRestored `
+                    'Ozgun settings dosyasi durumu final cleanup sonrasinda geri yuklenemedi.'
+
+                [void](Wait-Until {
+                    $script:finalHostsLock = Test-AstralHostsLock `
+                        -SelectedTargetIds $originalTargetIds
+                    $script:finalFirewallRuleEnabled =
+                        (Get-AstralRuleEnabled) -eq 'True'
+                    $script:finalAutoConfigState = Get-AstralSmokeAutoConfigState
+                    $script:finalPacFileExists =
+                        Test-Path -LiteralPath $pacFilePath -PathType Leaf
+                    $script:finalPacStateFileExists =
+                        Test-Path -LiteralPath $pacStateFilePath -PathType Leaf
+                    Test-AstralSmokeCleanupState `
+                        -OriginalAutoConfigState $originalAutoConfigState `
+                        -CurrentAutoConfigState $script:finalAutoConfigState `
+                        -PacFileExists $script:finalPacFileExists `
+                        -PacStateFileExists $script:finalPacStateFileExists `
+                        -HostsLockPresent $script:finalHostsLock `
+                        -FirewallRuleEnabled $script:finalFirewallRuleEnabled
+                } 20)
+                $result.FinalHostsLock = [bool]$script:finalHostsLock
+                $result.FinalFirewallRuleEnabled =
+                    (Get-AstralRuleEnabled) -eq 'True'
+                $result.FinalAutoConfigUrlRestored =
+                    Test-AstralSmokeAutoConfigStateEquals `
+                        -Original $originalAutoConfigState `
+                        -Current (Get-AstralSmokeAutoConfigState)
+                $result.FinalPacArtifactsCleared =
+                    (-not (Test-Path -LiteralPath $pacFilePath -PathType Leaf)) -and
+                    (-not (Test-Path -LiteralPath $pacStateFilePath -PathType Leaf))
+                $result.FinalTargetLockRestored =
+                    [bool]$result.FinalHostsLock -and
+                    [bool]$result.FinalFirewallRuleEnabled
+            }
     }
 }
 catch {
@@ -1536,6 +1589,10 @@ $criticalChecks = @(
     'ProfileExcludesBrowserFullPath',
     'DisconnectClicked',
     'WireSockProcessStoppedAfterDisconnect',
+    'AstralExitedGracefully',
+    'FinalFirewallRuleEnabled',
+    'FinalAutoConfigUrlRestored',
+    'FinalPacArtifactsCleared',
     'FinalTargetLockRestored',
     'SettingsRestored'
 )

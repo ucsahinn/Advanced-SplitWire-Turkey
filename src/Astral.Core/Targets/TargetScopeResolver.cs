@@ -8,11 +8,13 @@ public sealed class TargetScopeResolver
     private readonly TargetRegistry _registry;
     private readonly DiscordAppScope _discordScope;
     private readonly string _webProxyExecutablePath;
+    private readonly ITargetExecutablePathResolver _targetExecutablePathResolver;
 
     public TargetScopeResolver(
         TargetRegistry registry,
         DiscordAppScope discordScope,
-        string webProxyExecutablePath)
+        string webProxyExecutablePath,
+        ITargetExecutablePathResolver? targetExecutablePathResolver = null)
     {
         _registry = registry ?? throw new ArgumentNullException(nameof(registry));
         _discordScope = discordScope ?? throw new ArgumentNullException(nameof(discordScope));
@@ -20,6 +22,8 @@ public sealed class TargetScopeResolver
             string.IsNullOrWhiteSpace(webProxyExecutablePath)
                 ? throw new ArgumentException("Web proxy yolu boş olamaz.", nameof(webProxyExecutablePath))
                 : webProxyExecutablePath);
+        _targetExecutablePathResolver = targetExecutablePathResolver
+            ?? new WindowsTargetExecutablePathResolver();
     }
 
     public RoutingPlan Resolve(TargetSelection selection)
@@ -82,9 +86,12 @@ public sealed class TargetScopeResolver
             return;
         }
 
-        foreach (var hint in target.ExecutableHints)
+        foreach (var executablePath in _targetExecutablePathResolver.Resolve(target))
         {
-            allowedApplications.Add(hint.FileName);
+            if (Path.IsPathFullyQualified(executablePath))
+            {
+                allowedApplications.Add(Path.GetFullPath(executablePath));
+            }
         }
     }
 

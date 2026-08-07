@@ -7,18 +7,20 @@ Astral'ın ürün sınırı bilinçli olarak dardır: Windows üzerinde tek dü�
 Gerekli araçlar:
 
 - Windows 10/11 x64.
-- `global.json` ile uyumlu .NET 8 SDK (`8.0.422` feature band'i).
+- `global.json` ile uyumlu .NET 8 SDK (`8.0.422` veya daha yeni bir `8.0.4xx` yaması).
 - Git ve Windows PowerShell 5.1+ veya PowerShell 7+.
 - İlk NuGet restore için ağ erişimi.
 
-Repo kökünde doğrulayın:
+Yeni bir checkout için repoyu klonlayın, repo köküne geçin ve doğrulayın:
 
 ```powershell
+git clone https://github.com/ucsahinn/astral.git
+Set-Location .\astral
 dotnet --version
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify.ps1
 ```
 
-SDK bulunamazsa [.NET 8 SDK'yı](https://dotnet.microsoft.com/download/dotnet/8.0) kurup yeni bir terminal açın. Başarılı doğrulamanın son satırı `Dogrulama basariyla tamamlandi.` olur. `verify.ps1` varsayılan çıktılarını geçici dizinde tutar ve tamamlandığında temizler; kalıcı execution-policy değişikliği gerekmez.
+SDK bulunamazsa [.NET 8 SDK'yı](https://dotnet.microsoft.com/download/dotnet/8.0) kurup yeni bir terminal açın. Script bulunamazsa `Get-Location` ve `Test-Path .\scripts\verify.ps1` ile repo kökünde olduğunuzu doğrulayın. Başarılı doğrulamanın son satırı `Dogrulama basariyla tamamlandi. secret-scan=passed` (Gitleaks varsa) veya `secret-scan=skipped` olur. `verify.ps1` Core, Windows, smoke helper, Updater ve WebProxy testlerini aynı temiz build çıktısından çalıştırır; varsayılan çıktılarını geçici dizinde tutar ve tamamlandığında temizler. Kalıcı execution-policy değişikliği gerekmez.
 
 ## Kabul Edilen Değişiklikler
 
