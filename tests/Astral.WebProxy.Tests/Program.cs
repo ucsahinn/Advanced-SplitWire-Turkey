@@ -1,10 +1,12 @@
 using System.Reflection;
+using System.Net;
 using System.Text;
 
 var tests = new (string Name, Func<Task> Run)[]
 {
     ("HTTP header reader splits body bytes received in the same read", HeaderReaderSplitsSameReadBodyAsync),
-    ("HTTP request prefix writes same-read body upstream exactly once", RequestPrefixWritesSameReadBodyExactlyOnceAsync)
+    ("HTTP request prefix writes same-read body upstream exactly once", RequestPrefixWritesSameReadBodyExactlyOnceAsync),
+    ("Non-public system DNS answers require public DNS fallback", NonPublicDnsAnswersRequireFallback)
 };
 
 var failures = 0;
@@ -69,6 +71,39 @@ static async Task RequestPrefixWritesSameReadBodyExactlyOnceAsync()
         Encoding.ASCII.GetBytes(request),
         upstream.ToArray(),
         "upstream request prefix");
+}
+
+static Task NonPublicDnsAnswersRequireFallback()
+{
+    var connectorType = Assembly.Load("Astral.WebProxy")
+        .GetTypes()
+        .Single(type => type.Name.Contains(
+            "UpstreamConnector",
+            StringComparison.Ordinal));
+    var decision = connectorType.GetMethod(
+        "RequiresPublicDnsFallback",
+        BindingFlags.NonPublic | BindingFlags.Static)
+        ?? throw new InvalidOperationException(
+            "Upstream connector has no non-public DNS fallback decision.");
+
+    var blockedAnswers = new[]
+    {
+        IPAddress.IPv6Loopback,
+        IPAddress.Any
+    };
+    var publicAnswers = new[]
+    {
+        IPAddress.Parse("162.159.128.233")
+    };
+    var blockedResult = (bool)(decision.Invoke(null, [blockedAnswers]) ?? false);
+    var publicResult = (bool)(decision.Invoke(null, [publicAnswers]) ?? false);
+    if (!blockedResult || publicResult)
+    {
+        throw new InvalidOperationException(
+            "DNS fallback decision did not distinguish blocked and public answers.");
+    }
+
+    return Task.CompletedTask;
 }
 
 static async Task<object> ReadRequestHeadAsync(Stream source)

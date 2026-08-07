@@ -116,6 +116,7 @@ Değerler uyuşmazsa ZIP'i çalıştırmayın; iki dosyayı da silip resmi relea
 | Sorun giderme | [docs/sorun-giderme.md](docs/sorun-giderme.md) |
 | Mimari | [docs/mimari.md](docs/mimari.md) |
 | Kaynak sorun denetimi | [docs/kaynak-sorun-denetimi.md](docs/kaynak-sorun-denetimi.md) |
+| v2.2.38 release notu | [docs/releases/v2.2.38.md](docs/releases/v2.2.38.md) |
 | v2.2.37 release notu | [docs/releases/v2.2.37.md](docs/releases/v2.2.37.md) |
 | v2.2.36 release notu | [docs/releases/v2.2.36.md](docs/releases/v2.2.36.md) |
 | v2.2.35 release notu | [docs/releases/v2.2.35.md](docs/releases/v2.2.35.md) |

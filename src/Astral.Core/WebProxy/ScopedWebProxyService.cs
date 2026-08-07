@@ -5,7 +5,9 @@ using Astral.Core.Targets;
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
 using System.Text;
 using System.Text.Json;
 
@@ -97,14 +99,15 @@ public sealed record ScopedWebProxyProof(
     public static ScopedWebProxyProof Verified(
         string host,
         int proxyPort,
-        string message = "Scoped web proxy target proof succeeded.") =>
+        string message = "Scoped web proxy target proof succeeded.",
+        int statusCode = 200) =>
         new(
             true,
             true,
             message,
             host,
             proxyPort,
-            200,
+            statusCode,
             RequiredTargetCount: 1,
             VerifiedTargetCount: 1);
 
@@ -262,6 +265,8 @@ public sealed class WindowsScopedWebProxyService : IScopedWebProxyService, IAsyn
     private readonly string _powerShellPath;
     private readonly int _preferredProxyPort;
     private readonly Action<string>? _executableTrustVerifier;
+    private readonly Func<Stream, string, CancellationToken, Task<int?>>
+        _targetHttpsProofVerifier;
     private readonly bool _deleteExecutableDirectoryOnDispose;
     private readonly string? _bundleExtractionBaseDirectory;
     private IManagedProcess? _proxyProcess;
@@ -297,6 +302,7 @@ public sealed class WindowsScopedWebProxyService : IScopedWebProxyService, IAsyn
 
         _preferredProxyPort = preferredProxyPort;
         _executableTrustVerifier = executableTrustVerifier;
+        _targetHttpsProofVerifier = VerifyTargetHttpsAsync;
         _deleteExecutableDirectoryOnDispose = deleteExecutableDirectoryOnDispose;
         _bundleExtractionBaseDirectory = string.IsNullOrWhiteSpace(
             bundleExtractionBaseDirectory)
@@ -653,6 +659,36 @@ public sealed class WindowsScopedWebProxyService : IScopedWebProxyService, IAsyn
         }
     }
 
+    internal WindowsScopedWebProxyService(
+        AppPaths paths,
+        ICommandRunner commandRunner,
+        IProcessLauncher processLauncher,
+        string webProxyExecutable,
+        Func<Stream, string, CancellationToken, Task<int?>> targetHttpsProofVerifier,
+        IAstralDiagnostics? diagnostics = null,
+        string? powerShellPath = null,
+        int preferredProxyPort = DefaultProxyPort,
+        Action<string>? executableTrustVerifier = null,
+        bool deleteExecutableDirectoryOnDispose = false,
+        string? bundleExtractionBaseDirectory = null)
+        : this(
+            paths,
+            commandRunner,
+            processLauncher,
+            webProxyExecutable,
+            diagnostics,
+            powerShellPath,
+            preferredProxyPort,
+            executableTrustVerifier,
+            deleteExecutableDirectoryOnDispose,
+            bundleExtractionBaseDirectory)
+    {
+        _targetHttpsProofVerifier =
+            targetHttpsProofVerifier
+            ?? throw new ArgumentNullException(
+                nameof(targetHttpsProofVerifier));
+    }
+
     private void TryDeleteStagedExecutableDirectory()
     {
         var directory = Path.GetDirectoryName(_webProxyExecutable);
@@ -780,7 +816,7 @@ public sealed class WindowsScopedWebProxyService : IScopedWebProxyService, IAsyn
         }
     }
 
-    private static async Task<ScopedWebProxyProof> TryVerifySingleHostAsync(
+    private async Task<ScopedWebProxyProof> TryVerifySingleHostAsync(
         string host,
         int proxyPort,
         CancellationToken cancellationToken)
@@ -808,15 +844,35 @@ public sealed class WindowsScopedWebProxyService : IScopedWebProxyService, IAsyn
                 stream,
                 linked.Token);
             var statusCode = TryParseHttpStatusCode(responseHeader);
-            return statusCode == 200
-                ? ScopedWebProxyProof.Verified(host, proxyPort)
-                : ScopedWebProxyProof.Failed(
+            if (statusCode != 200)
+            {
+                return ScopedWebProxyProof.Failed(
                     host,
                     proxyPort,
                     "Proxy CONNECT returned HTTP " +
                     (statusCode?.ToString(CultureInfo.InvariantCulture) ?? "unknown") +
                     ".",
                     statusCode);
+            }
+
+            var targetStatusCode = await _targetHttpsProofVerifier(
+                stream,
+                host,
+                linked.Token);
+            return targetStatusCode is >= 200 and < 500
+                ? ScopedWebProxyProof.Verified(
+                    host,
+                    proxyPort,
+                    "Scoped web proxy end-to-end TLS/HTTP proof succeeded.",
+                    targetStatusCode.Value)
+                : ScopedWebProxyProof.Failed(
+                    host,
+                    proxyPort,
+                    "Target HTTPS request returned HTTP " +
+                    (targetStatusCode?.ToString(CultureInfo.InvariantCulture)
+                        ?? "unknown") +
+                    ".",
+                    targetStatusCode);
         }
         catch (OperationCanceledException)
             when (!cancellationToken.IsCancellationRequested)
@@ -824,23 +880,58 @@ public sealed class WindowsScopedWebProxyService : IScopedWebProxyService, IAsyn
             return ScopedWebProxyProof.Failed(
                 host,
                 proxyPort,
-                "Proxy CONNECT timed out.");
+                "Proxy end-to-end TLS/HTTP proof timed out.");
         }
         catch (Exception exception)
             when (exception is IOException
                 or SocketException
-                or InvalidOperationException)
+                or InvalidOperationException
+                or AuthenticationException)
         {
+            var diagnostic = exception is AuthenticationException
+                    && exception.InnerException is not null
+                ? exception.Message + " " + exception.InnerException.Message
+                : exception.Message ?? exception.GetType().Name;
             return ScopedWebProxyProof.Failed(
                 host,
                 proxyPort,
-                AstralDiagnostics.RedactForLog(
-                    exception.Message ?? exception.GetType().Name)
-                    ?? "Proxy CONNECT failed.");
+                "Proxy end-to-end TLS/HTTP proof failed: " +
+                (AstralDiagnostics.RedactForLog(
+                    diagnostic)
+                    ?? exception.GetType().Name) +
+                ".");
         }
     }
 
-    private static async Task<ProbeTargetResult> VerifyProbeTargetAsync(
+    private static async Task<int?> VerifyTargetHttpsAsync(
+        Stream stream,
+        string host,
+        CancellationToken cancellationToken)
+    {
+        await using var tlsStream = new SslStream(
+            stream,
+            leaveInnerStreamOpen: false);
+        await tlsStream.AuthenticateAsClientAsync(
+            new SslClientAuthenticationOptions
+            {
+                TargetHost = host,
+                EnabledSslProtocols = SslProtocols.None
+            },
+            cancellationToken);
+        var targetRequest = Encoding.ASCII.GetBytes(
+            "GET / HTTP/1.1\r\n" +
+            "Host: " + host + "\r\n" +
+            "User-Agent: Astral-Probe\r\n" +
+            "Accept: */*\r\n" +
+            "Connection: close\r\n\r\n");
+        await tlsStream.WriteAsync(targetRequest, cancellationToken);
+        var targetResponseHeader = await ReadProxyResponseHeaderAsync(
+            tlsStream,
+            cancellationToken);
+        return TryParseHttpStatusCode(targetResponseHeader);
+    }
+
+    private async Task<ProbeTargetResult> VerifyProbeTargetAsync(
         ProbeTarget target,
         int proxyPort,
         CancellationToken cancellationToken)
@@ -867,7 +958,7 @@ public sealed class WindowsScopedWebProxyService : IScopedWebProxyService, IAsyn
                 : string.Join(",", probeFailures));
     }
 
-    private static async Task<IReadOnlyList<ProbeTargetResult>> VerifyProbeTargetsAsync(
+    private async Task<IReadOnlyList<ProbeTargetResult>> VerifyProbeTargetsAsync(
         IReadOnlyList<ProbeTarget> probeTargets,
         int proxyPort,
         CancellationToken cancellationToken)
@@ -913,7 +1004,7 @@ public sealed class WindowsScopedWebProxyService : IScopedWebProxyService, IAsyn
             .ToArray();
     }
 
-    private static async Task<IReadOnlyList<ProbeTargetResult>> VerifyProbeTargetBatchAsync(
+    private async Task<IReadOnlyList<ProbeTargetResult>> VerifyProbeTargetBatchAsync(
         IReadOnlyList<ProbeTarget> targets,
         int proxyPort,
         CancellationToken cancellationToken)

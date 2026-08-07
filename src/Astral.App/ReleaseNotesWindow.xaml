@@ -82,11 +82,11 @@
                                 VerticalAlignment="Center">
                         <TextBlock FontSize="22"
                                    FontWeight="SemiBold"
-                                   Text="Astral VPN v2.2.37" />
+                                   Text="Astral VPN v2.2.38" />
                         <TextBlock Margin="0,5,0,0"
                                    FontSize="12"
                                    Foreground="{StaticResource SecondaryTextBrush}"
-                                   Text="WARP kayıt ve canlı doğrulama hotfix'i" />
+                                   Text="Discord gerçek erişim ve kanıt hotfix'i" />
                     </StackPanel>
                 </Grid>
 
@@ -109,7 +109,7 @@
                                            FontSize="14"
                                            LineHeight="21"
                                            TextWrapping="Wrap"
-                                           Text="v2.2.37, wgcf 2.2.31 kaynaklı TLS parmak izi regresyonunu wgcf 2.2.32'ye yükselterek giderir; kayıt hatası ve canlı test temizliği için güvenli hata kapılarını korur." />
+                                           Text="v2.2.38, bağlı görünmesine rağmen Discord web ve masaüstü uygulamasının çalışmamasına yol açan DNS ve doğrulama hatalarını giderir; başarı durumu artık gerçek hedef TLS/HTTP yanıtıyla kanıtlanır." />
                             </StackPanel>
                         </Border>
 
@@ -123,44 +123,32 @@
                                 <TextBlock FontSize="12"
                                            FontWeight="SemiBold"
                                            Foreground="{StaticResource AccentBrush}"
-                                           Text="V2.2.37 DEĞİŞİKLİKLERİ" />
+                                           Text="V2.2.38 DEĞİŞİKLİKLERİ" />
                                 <TextBlock Margin="0,10,0,0"
                                            FontSize="13"
                                            LineHeight="22"
                                            TextWrapping="Wrap"
-                                           Text="&#x2022; wgcf 2.2.32 Windows x64 indirmesi resmi GitHub release URL'sine ve sabit SHA-256 özetine pinlendi." />
+                                           Text="&#x2022; Scoped WebProxy kanıtı yalnız CONNECT 200 cevabını kabul etmez; hedefe gerçek TLS el sıkışması ve HTTP yanıtı ister." />
                                 <TextBlock FontSize="13"
                                            LineHeight="22"
                                            TextWrapping="Wrap"
-                                           Text="&#x2022; HTTP 429 durumunda otomatik yeniden kayıt yapılmaz; ham stack veya hassas değerler yerine birkaç dakika beklemeyi öneren güvenli açıklama gösterilir." />
+                                           Text="&#x2022; Sistem DNS'i hedefi ::1 veya 0.0.0.0 ile engellediğinde güvenli public DNS fallback devreye girer ve yalnız public upstream adreslerine bağlanır." />
                                 <TextBlock FontSize="13"
                                            LineHeight="22"
                                            TextWrapping="Wrap"
-                                           Text="&#x2022; Kayıt çağrısı hesap dosyasını oluşturduysa yinelenen kayıt yerine profil üretimine kontrollü biçimde devam edilir." />
+                                           Text="&#x2022; WireSock 1.4.7 sanal adaptör modunda kararsız IPv6 WARP endpoint'i, doğrulanmış IPv4 Anycast endpoint'ine normalize edilir." />
                                 <TextBlock FontSize="13"
                                            LineHeight="22"
                                            TextWrapping="Wrap"
-                                           Text="&#x2022; Canlı smoke testi seçili hedef kimliklerini tam eşleştirir; süreç, PAC, firewall, hosts ve ayar restorasyonu tamamlanmadan başarılı sayılmaz." />
+                                           Text="&#x2022; Discord masaüstü uygulaması ve Discord web, gerçek Windows oturumunda uygulama TCP 443 kanıtı ve hedef TLS/HTTP kanıtıyla doğrulandı." />
                                 <TextBlock FontSize="13"
                                            LineHeight="22"
                                            TextWrapping="Wrap"
-                                           Text="&#x2022; Scoped proxy hata metnindeki bozuk Türkçe düzeltildi ve regresyon kapsamı genişletildi." />
+                                           Text="&#x2022; PAC, firewall, hosts, WireSock ve ayar restorasyonu canlı bağlan/ayır smoke kapısında birlikte doğrulanır." />
                                 <TextBlock FontSize="13"
                                            LineHeight="22"
                                            TextWrapping="Wrap"
-                                           Text="&#x2022; Updater rollback ve WebProxy TCP gövde ayrıştırması fail-closed regresyon testleriyle düzeltildi." />
-                                <TextBlock FontSize="13"
-                                           LineHeight="22"
-                                           TextWrapping="Wrap"
-                                           Text="&#x2022; Pencere ve bildirim alanı çıkışında cleanup hatası sessiz kapanış yerine yeniden deneme ve tanı akışına döner." />
-                                <TextBlock FontSize="13"
-                                           LineHeight="22"
-                                           TextWrapping="Wrap"
-                                           Text="&#x2022; Hedef uygulama kanıtı canonical executable yolu ve doğrulanmış 443 bağlantısı ister; aynı adlı sahte süreçleri reddeder." />
-                                <TextBlock FontSize="13"
-                                           LineHeight="22"
-                                           TextWrapping="Wrap"
-                                           Text="&#x2022; Arka plan videosu optimize edilmiş yerel H.264 dosyasından oynatılır; uzak CDN kullanılmaz, eksik veya bozuk medyada nötr fallback devreye girer." />
+                                           Text="&#x2022; Optimize edilmiş yerel H.264 arka plan videosu, azaltılmış hareket ve bozuk-dosya fallback davranışı korunur." />
                             </StackPanel>
                         </Border>
 
@@ -206,7 +194,7 @@
                     <TextBlock VerticalAlignment="Center"
                                FontSize="11"
                                Foreground="{StaticResource MutedTextBrush}"
-                               Text="v2.2.37 hotfix notu" />
+                               Text="v2.2.38 hotfix notu" />
                     <Button Grid.Column="1"
                             Margin="0,0,10,0"
                             Height="40"

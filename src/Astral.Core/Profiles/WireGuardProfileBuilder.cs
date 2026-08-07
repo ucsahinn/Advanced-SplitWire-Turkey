@@ -2,6 +2,14 @@ namespace Astral.Core.Profiles;
 
 public static class WireGuardProfileBuilder
 {
+    private const string StableCloudflareWarpIpv4Endpoint =
+        "162.159.192.1:2408";
+    private static readonly string[] CloudflareWarpEndpointsRequiringIpv4 =
+    [
+        "engage.cloudflareclient.com:2408",
+        "[2606:4700:d0::a29f:c001]:2408"
+    ];
+
     public static string BuildScopedProfile(
         string sourceProfile,
         IEnumerable<string> allowedApplications)
@@ -46,7 +54,7 @@ public static class WireGuardProfileBuilder
                 continue;
             }
 
-            result.Add(sourceLine.TrimEnd());
+            result.Add(NormalizeCloudflareWarpEndpoint(sourceLine).TrimEnd());
 
             if (!inserted && trimmed.StartsWith("Endpoint", StringComparison.OrdinalIgnoreCase))
             {
@@ -61,6 +69,26 @@ public static class WireGuardProfileBuilder
         }
 
         return string.Join("\r\n", result).TrimEnd() + "\r\n";
+    }
+
+    private static string NormalizeCloudflareWarpEndpoint(string sourceLine)
+    {
+        var trimmed = sourceLine.Trim();
+        var separatorIndex = trimmed.IndexOf('=');
+        if (separatorIndex < 0
+            || !trimmed[..separatorIndex].Trim().Equals(
+                "Endpoint",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return sourceLine;
+        }
+
+        var endpoint = trimmed[(separatorIndex + 1)..].Trim();
+        return CloudflareWarpEndpointsRequiringIpv4.Contains(
+            endpoint,
+            StringComparer.OrdinalIgnoreCase)
+            ? "Endpoint = " + StableCloudflareWarpIpv4Endpoint
+            : sourceLine;
     }
 
     private static string NormalizeApplication(string value)

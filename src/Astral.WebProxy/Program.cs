@@ -512,9 +512,21 @@ file static class UpstreamConnector
     {
         try
         {
-            var addresses = await Dns.GetHostAddressesAsync(
+            IReadOnlyList<IPAddress> addresses = await Dns.GetHostAddressesAsync(
                 host,
                 cancellationToken);
+            if (RequiresPublicDnsFallback(addresses)
+                && IsPublicDnsFallbackEnabled())
+            {
+                var fallbackAddresses = await ResolveBypassSystemDnsAsync(
+                    host,
+                    cancellationToken);
+                if (fallbackAddresses.Count > 0)
+                {
+                    addresses = fallbackAddresses;
+                }
+            }
+
             return await ConnectResolvedAddressAsync(
                 host,
                 addresses,
@@ -541,6 +553,10 @@ file static class UpstreamConnector
                 cancellationToken);
         }
     }
+
+    private static bool RequiresPublicDnsFallback(
+        IReadOnlyList<IPAddress> addresses) =>
+        !addresses.Any(WebProxyEndpointPolicy.IsPublicAddress);
 
     private static bool IsPublicDnsFallbackEnabled()
     {

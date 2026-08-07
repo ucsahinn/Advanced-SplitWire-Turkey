@@ -55,6 +55,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ("Web proxy varsayılan port doluyken yedek porta geçer", ScopedWebProxyUsesFallbackPortWhenPreferredPortIsBusyAsync),
     ("Web proxy PAC sapmasında kapsamı yeniden uygular", ScopedWebProxyEnsureReappliesMissingPacScopeAsync),
     ("Web proxy erken kapanırsa PAC uygulanmaz", ScopedWebProxyRejectsExitedProcessBeforeApplyingPacAsync),
+    ("Web proxy kanıtı CONNECT 200 sonrası hedef TLS akışı yoksa reddeder", ScopedWebProxyProofRejectsConnectOnlyFalsePositiveAsync),
     ("Web proxy kanıtı seçili her web hedefinden başarı ister", ScopedWebProxyProofRequiresEverySelectedWebTargetAsync),
     ("Web proxy kanıtı doğrulanan hedef kimliklerini tanıya yazar", ScopedWebProxyProofWritesVerifiedTargetIdsAsync),
     ("Web proxy kanıtı toplu hedeflerde seri beklemeye dönmez", ScopedWebProxyProofKeepsBoundedParallelismAsync),
@@ -63,6 +64,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ("Eski web kapsamı çağrısı tarayıcıları profile eklemez", DiscordScopeDoesNotIncludeBrowsersWhenLegacyFlagIsEnabledAsync),
     ("Web kapsamı PATH üzerindeki sahte tarayıcıları kapsama almaz", DiscordScopeIgnoresPathSpoofedBrowsersAsync),
     ("Profil üretici geniş AllowedApps değerlerini değiştirir", ProfileBuilderIsStrictAsync),
+    ("Profil üretici WireSock sanal adaptör için WARP endpointini IPv4 yapar", ProfileBuilderUsesStableIpv4WarpEndpointAsync),
     ("Profil üretici boşluklu uygulama yollarını tırnaklar", ProfileBuilderQuotesApplicationsWithSpacesAsync),
     ("Profil üretici yapılandırma enjeksiyonunu reddeder", ProfileBuilderRejectsInjectionAsync),
     ("wgcf seçili hedefler için WireSock uyumlu Astral scoped profil üretir", WgcfProvisionerBuildsDiscordAccessProfileAsync),
@@ -1576,6 +1578,8 @@ static async Task ScopedWebProxyProofRequiresEverySelectedWebTargetAsync()
         runner,
         launcher,
         webProxyExecutable,
+        targetHttpsProofVerifier: static (_, _, _) =>
+            Task.FromResult<int?>(204),
         powerShellPath: "powershell.exe",
         preferredProxyPort: ReserveTcpPort());
     File.WriteAllText(webProxyExecutable, "proxy");
@@ -1612,6 +1616,62 @@ static async Task ScopedWebProxyProofRequiresEverySelectedWebTargetAsync()
     }
 }
 
+static async Task ScopedWebProxyProofRejectsConnectOnlyFalsePositiveAsync()
+{
+    var root = CreateTemporaryDirectory();
+    var paths = new AppPaths(root);
+    var expectedPacUri = new Uri(paths.WebProxyPacFile).AbsoluteUri;
+    var healthyPacStatus = JsonSerializer.Serialize(new
+    {
+        CurrentAutoConfigURL = expectedPacUri,
+        ExpectedAutoConfigURL = expectedPacUri,
+        PacFileExists = true,
+        StateFileExists = true,
+        StateOwner = "Astral",
+        StateAppliedAutoConfigURL = expectedPacUri
+    });
+    var runner = new SequencedCommandRunner(
+        new CommandResult(0, string.Empty, string.Empty),
+        new CommandResult(0, healthyPacStatus, string.Empty));
+    var launcher = new ConnectProofProcessLauncher(_ => true);
+    var webProxyExecutable = Path.Combine(root, "Astral.WebProxy.exe");
+    var service = new WindowsScopedWebProxyService(
+        paths,
+        runner,
+        launcher,
+        webProxyExecutable,
+        powerShellPath: "powershell.exe",
+        preferredProxyPort: ReserveTcpPort());
+    File.WriteAllText(webProxyExecutable, "proxy");
+
+    var resolver = new TargetScopeResolver(
+        TargetRegistry.CreateDefault(),
+        new DiscordAppScope(root, root, root),
+        webProxyExecutable);
+    var plan = resolver.Resolve(new TargetSelection([TargetIds.Discord]));
+
+    try
+    {
+        await service.ApplyAsync(plan, progress: null, CancellationToken.None);
+
+        var proof = await service.VerifyTargetAccessAsync(
+            plan,
+            CancellationToken.None);
+
+        Assert(proof.Required);
+        Assert(!proof.IsVerified);
+        Assert((proof.FailedTargets ?? proof.Message).Contains(
+            "TLS",
+            StringComparison.OrdinalIgnoreCase));
+    }
+    finally
+    {
+        await service.ClearAsync(CancellationToken.None);
+        await launcher.DisposeAsync();
+        Directory.Delete(root, recursive: true);
+    }
+}
+
 static async Task ScopedWebProxyProofWritesVerifiedTargetIdsAsync()
 {
     var root = CreateTemporaryDirectory();
@@ -1636,6 +1696,8 @@ static async Task ScopedWebProxyProofWritesVerifiedTargetIdsAsync()
         runner,
         launcher,
         webProxyExecutable,
+        targetHttpsProofVerifier: static (_, _, _) =>
+            Task.FromResult<int?>(204),
         powerShellPath: "powershell.exe",
         preferredProxyPort: ReserveTcpPort());
     File.WriteAllText(webProxyExecutable, "proxy");
@@ -1708,6 +1770,8 @@ static async Task ScopedWebProxyProofRunsDelayedTargetsInParallelAsync()
         runner,
         launcher,
         webProxyExecutable,
+        targetHttpsProofVerifier: static (_, _, _) =>
+            Task.FromResult<int?>(204),
         powerShellPath: "powershell.exe",
         preferredProxyPort: ReserveTcpPort());
     File.WriteAllText(webProxyExecutable, "proxy");
@@ -1906,6 +1970,30 @@ static Task ProfileBuilderIsStrictAsync()
     Assert(!profile.Contains("gameclient.exe", StringComparison.OrdinalIgnoreCase));
     Assert(!profile.Contains("Update.exe", StringComparison.OrdinalIgnoreCase));
     Assert(profile.Split("AllowedApps =", StringSplitOptions.None).Length == 2);
+    return Task.CompletedTask;
+}
+
+static Task ProfileBuilderUsesStableIpv4WarpEndpointAsync()
+{
+    const string source = """
+        [Interface]
+        PrivateKey = secret
+        Address = 172.16.0.2/32
+
+        [Peer]
+        PublicKey = public
+        Endpoint = [2606:4700:d0::a29f:c001]:2408
+        AllowedIPs = 0.0.0.0/0, ::/0
+        """;
+
+    var profile = WireGuardProfileBuilder.BuildScopedProfile(
+        source,
+        ["Astral.WebProxy.exe"]);
+
+    Assert(profile.Contains(
+        "Endpoint = 162.159.192.1:2408",
+        StringComparison.Ordinal));
+    Assert(!profile.Contains("2606:4700:d0::a29f:c001", StringComparison.Ordinal));
     return Task.CompletedTask;
 }
 
